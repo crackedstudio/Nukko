@@ -1,7 +1,7 @@
 import { parseUnits } from 'viem';
 
 // Treasury wallet — receives all cUSD/USDC/USDT time-purchase payments
-export const TREASURY = '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225';
+export const TREASURY = import.meta.env.VITE_TREASURY_ADDRESS;
 
 // Celo mainnet stablecoins supported for time purchases
 export const STABLECOINS = {
