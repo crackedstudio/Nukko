@@ -2,11 +2,10 @@ import { useEffect, useRef, useCallback } from 'react';
 import ScoreBox      from '../ui/ScoreBox.jsx';
 import Timer         from '../ui/Timer.jsx';
 import TimerPackages from '../ui/TimerPackages.jsx';
+import PowerUpBar    from '../ui/PowerUpBar.jsx';
+import PowerUpShop   from '../ui/PowerUpShop.jsx';
 import Toast         from '../ui/Toast.jsx';
-import { FRUITS }    from '../../game/fruits.js';
-import { drawFruitOnCtx } from '../../game/fruits.js';
-
-const W = 320;
+import { FRUITS, drawFruitOnCtx } from '../../game/fruits.js';
 
 export default function Playing({
   canvasRef,
@@ -14,11 +13,29 @@ export default function Playing({
   score,
   personalBest,
   remaining,
+  containerWidth,
+  // time packages
   packages,
   onPurchase,
   purchaseLoading,
   selectedToken,
   onSelectToken,
+  balances,
+  // power-ups
+  totalBombs,
+  totalExpands,
+  onUseBomb,
+  onUseExpand,
+  onBuyBombs,
+  onBuyExpands,
+  powerUpLoading,
+  shop,
+  onCloseShop,
+  powerUpPackages,
+  powerUpToken,
+  onSelectPowerUpToken,
+  onPurchasePowerUp,
+  // game
   toast,
   movePointer,
   dropFruit,
@@ -26,7 +43,6 @@ export default function Playing({
 }) {
   const pointerActiveRef = useRef(false);
 
-  // Draw the "next fruit" preview canvas whenever nextIdx changes
   useEffect(() => {
     const canvas = document.getElementById('next-canvas');
     if (!canvas) return;
@@ -36,13 +52,12 @@ export default function Playing({
     drawFruitOnCtx(ctx, 30, 30, r, nextIdx, 1);
   }, [nextIdx]);
 
-  // Attach pointer/touch listeners directly to the canvas element
   const getX = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return W / 2;
+    if (!rect) return containerWidth / 2;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     return clientX - rect.left;
-  }, [canvasRef]);
+  }, [canvasRef, containerWidth]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,8 +78,8 @@ export default function Playing({
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointerup',   onPointerUp);
-    canvas.addEventListener('touchmove',   onTouchMove,  { passive: false });
-    canvas.addEventListener('touchend',    onTouchEnd,   { passive: false });
+    canvas.addEventListener('touchmove',   onTouchMove, { passive: false });
+    canvas.addEventListener('touchend',    onTouchEnd,  { passive: false });
 
     return () => {
       canvas.removeEventListener('pointermove', onPointerMove);
@@ -77,14 +92,12 @@ export default function Playing({
 
   return (
     <div className="screen playing">
-      {/* Top HUD */}
       <div className="play-header">
         <ScoreBox label="SCORE" value={score} />
         <Timer remaining={remaining} />
         <ScoreBox label="BEST"  value={personalBest} />
       </div>
 
-      {/* Next-fruit preview */}
       <div className="next-box-wrap">
         <div className="next-box">
           <span className="next-label">NEXT</span>
@@ -92,28 +105,50 @@ export default function Playing({
         </div>
       </div>
 
-      {/* Game canvas */}
-      <div className="canvas-wrap">
+      <div className="canvas-wrap" style={{ width: containerWidth }}>
         <canvas
           ref={canvasRef}
           id="game-canvas"
-          width={W}
+          width={containerWidth}
           height={480}
           style={{ display: 'block', cursor: 'none', touchAction: 'none' }}
         />
         <Toast message={toast.message} visible={toast.visible} />
       </div>
 
-      {/* Time purchase buttons */}
+      <PowerUpBar
+        totalBombs={totalBombs}
+        totalExpands={totalExpands}
+        onUseBomb={onUseBomb}
+        onUseExpand={onUseExpand}
+        onBuyBombs={onBuyBombs}
+        onBuyExpands={onBuyExpands}
+        disabled={powerUpLoading || gameOver}
+      />
+
       <TimerPackages
         packages={packages}
         onPurchase={onPurchase}
         loading={purchaseLoading}
         selectedToken={selectedToken}
         onSelectToken={onSelectToken}
+        balances={balances}
       />
 
       <p className="play-hint">Tap to drop · Merge matching fruits!</p>
+
+      {shop && (
+        <PowerUpShop
+          type={shop}
+          packages={powerUpPackages}
+          selectedToken={powerUpToken}
+          onSelectToken={onSelectPowerUpToken}
+          onPurchase={onPurchasePowerUp}
+          loading={powerUpLoading}
+          onClose={onCloseShop}
+          balances={balances}
+        />
+      )}
     </div>
   );
 }

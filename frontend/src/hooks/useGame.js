@@ -2,39 +2,41 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Matter from 'matter-js';
 import { FRUITS, randFruitIdx, drawFruitOnCtx } from '../game/fruits.js';
 
-const { Engine, Bodies, Events, Composite, World } = Matter;
+const { Engine, Bodies, Events, Composite, World, Body } = Matter;
 
-const W        = 320;
-const H        = 480;
-const WALL     = 20;
-const DANGER_Y = 80;
+const BASE_W    = 320;
+const MAX_W     = 440;
+const EXPAND_PX = 30;
+const H         = 480;
+const WALL      = 20;
+const DANGER_Y  = 80;
 
 export function useGame(onScorePts, onToast) {
   const canvasRef = useRef(null);
 
-  // Matter.js internals — never trigger re-renders
   const engineRef      = useRef(null);
   const worldRef       = useRef(null);
   const bodiesRef      = useRef([]);
   const mergeQueueRef  = useRef(new Set());
   const gameLoopRef    = useRef(null);
+  const rightWallRef   = useRef(null);
+  const containerWRef  = useRef(BASE_W);
 
-  // Sync refs to avoid stale closures inside the RAF loop
   const currentIdxRef  = useRef(0);
   const nextIdxRef     = useRef(0);
-  const dropXRef       = useRef(W / 2);
+  const dropXRef       = useRef(BASE_W / 2);
   const canDropRef     = useRef(true);
   const gameOverRef    = useRef(false);
   const onScoreRef     = useRef(onScorePts);
   const onToastRef     = useRef(onToast);
 
-  useEffect(() => { onScoreRef.current  = onScorePts; }, [onScorePts]);
-  useEffect(() => { onToastRef.current  = onToast;    }, [onToast]);
+  useEffect(() => { onScoreRef.current = onScorePts; }, [onScorePts]);
+  useEffect(() => { onToastRef.current = onToast;    }, [onToast]);
 
-  // React state for UI — only what components need to render
-  const [currentIdx, setCurrentIdx] = useState(() => randFruitIdx());
-  const [nextIdx,    setNextIdx]     = useState(() => randFruitIdx());
-  const [gameOver,   setGameOver]    = useState(false);
+  const [currentIdx,     setCurrentIdx]     = useState(() => randFruitIdx());
+  const [nextIdx,        setNextIdx]        = useState(() => randFruitIdx());
+  const [gameOver,       setGameOver]       = useState(false);
+  const [containerWidth, setContainerWidth] = useState(BASE_W);
 
   // ── Fruit body creation ────────────────────────────────────────────────────
 
@@ -58,31 +60,30 @@ export function useGame(onScorePts, onToast) {
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const cw  = containerWRef.current;
     const ctx = canvas.getContext('2d');
 
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, cw, H);
 
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#fff8e1');
     bg.addColorStop(1, '#ffe0b2');
     ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, cw, H);
 
-    // Danger line
     ctx.save();
     ctx.setLineDash([6, 6]);
     ctx.strokeStyle = 'rgba(255,80,80,0.5)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, DANGER_Y);
-    ctx.lineTo(W, DANGER_Y);
+    ctx.lineTo(cw, DANGER_Y);
     ctx.stroke();
     ctx.restore();
     ctx.font = '10px sans-serif';
     ctx.fillStyle = 'rgba(255,80,80,0.7)';
     ctx.fillText('DANGER', 4, DANGER_Y - 4);
 
-    // Ghost fruit + drop guide line
     if (canDropRef.current && !gameOverRef.current) {
       const idx = currentIdxRef.current;
       const x   = dropXRef.current;
@@ -99,7 +100,6 @@ export function useGame(onScorePts, onToast) {
       ctx.restore();
     }
 
-    // All live fruit bodies
     bodiesRef.current.forEach((b) => {
       ctx.save();
       ctx.translate(b.position.x, b.position.y);
@@ -165,16 +165,19 @@ export function useGame(onScorePts, onToast) {
   // ── Physics initialisation ─────────────────────────────────────────────────
 
   const initPhysics = useCallback(() => {
+    const cw     = containerWRef.current;
     const engine = Engine.create({ gravity: { y: 2 } });
     const world  = engine.world;
     engineRef.current = engine;
     worldRef.current  = world;
 
-    World.add(world, [
-      Bodies.rectangle(W / 2,     H + WALL / 2, W,    WALL, { isStatic: true, label: 'wall', friction: 0.5,  restitution: 0.1 }),
-      Bodies.rectangle(-WALL / 2, H / 2,        WALL, H * 2, { isStatic: true, label: 'wall' }),
-      Bodies.rectangle(W + WALL / 2, H / 2,     WALL, H * 2, { isStatic: true, label: 'wall' }),
-    ]);
+    // Bottom wall extra wide to survive container expansions without rebuild
+    const floor     = Bodies.rectangle(cw / 2,     H + WALL / 2, MAX_W * 2, WALL, { isStatic: true, label: 'wall', friction: 0.5, restitution: 0.1 });
+    const leftWall  = Bodies.rectangle(-WALL / 2,  H / 2,        WALL,      H * 2, { isStatic: true, label: 'wall' });
+    const rightWall = Bodies.rectangle(cw + WALL / 2, H / 2,     WALL,      H * 2, { isStatic: true, label: 'wall' });
+
+    rightWallRef.current = rightWall;
+    World.add(world, [floor, leftWall, rightWall]);
     Events.on(engine, 'collisionStart', handleCollision);
   }, [handleCollision]);
 
@@ -194,18 +197,18 @@ export function useGame(onScorePts, onToast) {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   const startEngine = useCallback(() => {
-    // Teardown any previous session
     if (engineRef.current) {
       cancelAnimationFrame(gameLoopRef.current);
       World.clear(worldRef.current);
       Engine.clear(engineRef.current);
     }
 
-    bodiesRef.current     = [];
+    bodiesRef.current        = [];
     mergeQueueRef.current.clear();
-    gameOverRef.current   = false;
-    canDropRef.current    = true;
-    dropXRef.current      = W / 2;
+    gameOverRef.current      = false;
+    canDropRef.current       = true;
+    containerWRef.current    = BASE_W;
+    dropXRef.current         = BASE_W / 2;
 
     const ci = randFruitIdx();
     const ni = randFruitIdx();
@@ -214,6 +217,7 @@ export function useGame(onScorePts, onToast) {
     setCurrentIdx(ci);
     setNextIdx(ni);
     setGameOver(false);
+    setContainerWidth(BASE_W);
 
     initPhysics();
     startLoop();
@@ -223,11 +227,7 @@ export function useGame(onScorePts, onToast) {
     if (!canDropRef.current || gameOverRef.current) return;
     canDropRef.current = false;
 
-    addFruitBody(
-      dropXRef.current,
-      FRUITS[currentIdxRef.current].r + 5,
-      currentIdxRef.current,
-    );
+    addFruitBody(dropXRef.current, FRUITS[currentIdxRef.current].r + 5, currentIdxRef.current);
 
     const next    = nextIdxRef.current;
     const newNext = randFruitIdx();
@@ -242,7 +242,7 @@ export function useGame(onScorePts, onToast) {
   const movePointer = useCallback((rawX) => {
     if (gameOverRef.current) return;
     const r = FRUITS[currentIdxRef.current].r;
-    dropXRef.current = Math.max(r, Math.min(W - r, rawX));
+    dropXRef.current = Math.max(r, Math.min(containerWRef.current - r, rawX));
   }, []);
 
   const stopEngine = useCallback(() => {
@@ -253,7 +253,27 @@ export function useGame(onScorePts, onToast) {
     }
   }, []);
 
-  // Cleanup on App unmount
+  // Remove the topmost fruit (smallest y) — the most dangerous one
+  const activateBomb = useCallback(() => {
+    if (!worldRef.current || bodiesRef.current.length === 0) return false;
+    let target = bodiesRef.current[0];
+    for (const b of bodiesRef.current) {
+      if (b.position.y < target.position.y) target = b;
+    }
+    World.remove(worldRef.current, target);
+    bodiesRef.current = bodiesRef.current.filter((b) => b !== target);
+    return true;
+  }, []);
+
+  // Widen the container by moving the right wall outward
+  const expandContainer = useCallback(() => {
+    if (!worldRef.current || !rightWallRef.current) return;
+    if (containerWRef.current >= MAX_W) return;
+    containerWRef.current = Math.min(containerWRef.current + EXPAND_PX, MAX_W);
+    Body.setPosition(rightWallRef.current, { x: containerWRef.current + WALL / 2, y: H / 2 });
+    setContainerWidth(containerWRef.current);
+  }, []);
+
   useEffect(() => {
     return () => {
       cancelAnimationFrame(gameLoopRef.current);
@@ -269,9 +289,12 @@ export function useGame(onScorePts, onToast) {
     currentIdx,
     nextIdx,
     gameOver,
+    containerWidth,
     startEngine,
     dropFruit,
     movePointer,
     stopEngine,
+    activateBomb,
+    expandContainer,
   };
 }

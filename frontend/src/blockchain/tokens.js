@@ -57,6 +57,12 @@ export const TIME_PACKAGES = [
   { label: 'Big Boost',      seconds: 60, priceUSD: '0.35' },
 ];
 
+export const POWERUP_PACKAGES = [
+  { qty: 1,  priceUSD: '0.10' },
+  { qty: 5,  priceUSD: '0.40' },
+  { qty: 10, priceUSD: '0.90' },
+];
+
 export function priceWei(priceUSD, decimals) {
   return parseUnits(priceUSD, decimals);
 }

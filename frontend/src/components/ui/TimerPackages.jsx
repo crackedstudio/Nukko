@@ -1,4 +1,9 @@
-import { STABLECOIN_KEYS } from '../../blockchain/tokens.js';
+import { STABLECOIN_KEYS, STABLECOINS } from '../../blockchain/tokens.js';
+
+function fmtBalance(raw, decimals) {
+  const val = Number(raw ?? 0n) / 10 ** decimals;
+  return val < 0.01 && val > 0 ? '<0.01' : val.toFixed(2);
+}
 
 export default function TimerPackages({
   packages,
@@ -6,10 +11,10 @@ export default function TimerPackages({
   loading,
   selectedToken,
   onSelectToken,
+  balances = {},
 }) {
   return (
     <div className="time-packages-wrap">
-      {/* Token selector */}
       <div className="token-tabs">
         {STABLECOIN_KEYS.map((key) => (
           <button
@@ -18,12 +23,12 @@ export default function TimerPackages({
             onClick={() => onSelectToken(key)}
             disabled={loading}
           >
-            {key}
+            <span>{key}</span>
+            <span className="token-bal">{fmtBalance(balances[key], STABLECOINS[key].decimals)}</span>
           </button>
         ))}
       </div>
 
-      {/* Time packages */}
       <div className="time-packages">
         {packages.map((pkg, i) => (
           <button

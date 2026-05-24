@@ -196,10 +196,11 @@ h3 { font-size: 16px; font-weight: 700; color: #ffd700; margin-bottom: 4px; }
 /* Canvas wrapper */
 .canvas-wrap {
   position: relative;
-  width: 320px;
+  max-width: 100%;
   background: rgba(255,248,230,0.06);
   border-radius: 0 0 16px 16px;
   overflow: hidden;
+  transition: width 0.2s ease;
 }
 #game-canvas { display: block; }
 
@@ -222,6 +223,9 @@ h3 { font-size: 16px; font-weight: 700; color: #ffd700; margin-bottom: 4px; }
   color: #ffd700;
 }
 .token-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+.token-tab { flex-direction: column; }
+.token-bal { font-size: 10px; color: rgba(255,255,255,0.4); font-weight: 400; margin-top: 1px; }
+.token-tab.active .token-bal { color: rgba(255,215,0,0.65); }
 
 .time-packages {
   display: flex; gap: 8px;
@@ -242,6 +246,76 @@ h3 { font-size: 16px; font-weight: 700; color: #ffd700; margin-bottom: 4px; }
 .pkg-price { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 2px; }
 
 .play-hint { font-size: 11px; color: rgba(255,255,255,0.35); }
+
+/* ── Power-up bar ──────────────────────────────────────────────────────────── */
+.powerup-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; width: 100%; max-width: 360px; padding: 0 12px;
+}
+
+.powerup-item {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.powerup-use-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,215,0,0.35);
+  border-radius: 12px; padding: 8px 14px;
+  font-size: 18px; color: #fff; cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+.powerup-use-btn span { font-size: 13px; font-weight: 700; color: #ffd700; }
+.powerup-use-btn:active { transform: scale(0.95); background: rgba(255,215,0,0.15); }
+.powerup-use-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.powerup-buy-btn {
+  background: rgba(255,215,0,0.15);
+  border: 1.5px solid rgba(255,215,0,0.5);
+  border-radius: 8px; width: 28px; height: 28px;
+  font-size: 16px; font-weight: 700; color: #ffd700;
+  cursor: pointer; transition: background 0.1s;
+  display: flex; align-items: center; justify-content: center;
+}
+.powerup-buy-btn:active { background: rgba(255,215,0,0.3); }
+.powerup-buy-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.powerup-divider {
+  width: 1px; height: 36px;
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Power-up shop modal ───────────────────────────────────────────────────── */
+.shop-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+
+.shop-modal {
+  width: 100%; max-width: 400px;
+  background: #1e0f3a;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 32px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.shop-modal h3 { font-size: 18px; font-weight: 800; color: #ffd700; text-align: center; }
+
+.shop-packages {
+  display: flex; gap: 10px; justify-content: center;
+}
+
+.pkg-qty  { font-size: 14px; font-weight: 700; color: #fff; }
+
+.shop-close-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 12px; padding: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.6);
+  cursor: pointer; margin-top: 4px;
+}
+.shop-close-btn:active { background: rgba(255,255,255,0.14); }
 
 /* Toast */
 .toast {
