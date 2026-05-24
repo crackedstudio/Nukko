@@ -11,7 +11,13 @@ const H         = 480;
 const WALL      = 20;
 const DANGER_Y  = 80;
 
-export function useGame(onScorePts, onToast) {
+function mergeTimeBonus(newIdx) {
+  if (newIdx >= 8) return 5;
+  if (newIdx >= 5) return Math.random() < 0.5 ? 2 : 5;
+  return 2;
+}
+
+export function useGame(onScorePts, onToast, onAddTime) {
   const canvasRef = useRef(null);
 
   const engineRef      = useRef(null);
@@ -29,9 +35,11 @@ export function useGame(onScorePts, onToast) {
   const gameOverRef    = useRef(false);
   const onScoreRef     = useRef(onScorePts);
   const onToastRef     = useRef(onToast);
+  const onAddTimeRef   = useRef(onAddTime);
 
-  useEffect(() => { onScoreRef.current = onScorePts; }, [onScorePts]);
-  useEffect(() => { onToastRef.current = onToast;    }, [onToast]);
+  useEffect(() => { onScoreRef.current   = onScorePts; }, [onScorePts]);
+  useEffect(() => { onToastRef.current   = onToast;    }, [onToast]);
+  useEffect(() => { onAddTimeRef.current = onAddTime;  }, [onAddTime]);
 
   const [currentIdx,     setCurrentIdx]     = useState(() => randFruitIdx());
   const [nextIdx,        setNextIdx]        = useState(() => randFruitIdx());
@@ -155,7 +163,9 @@ export function useGame(onScorePts, onToast) {
         const newIdx = idx + 1;
         addFruitBody(mx, my, newIdx);
         onScoreRef.current?.(FRUITS[newIdx].pts);
-        onToastRef.current?.(`${FRUITS[newIdx].emoji} +${FRUITS[newIdx].pts}`);
+        const bonus = mergeTimeBonus(newIdx);
+        onAddTimeRef.current?.(bonus);
+        onToastRef.current?.(`${FRUITS[newIdx].emoji} +${FRUITS[newIdx].pts} ⏱+${bonus}s`);
 
         mergeQueueRef.current.delete([a.id, b.id].sort().join('-'));
       }, 50);

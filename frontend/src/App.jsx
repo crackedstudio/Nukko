@@ -65,12 +65,6 @@ export default function App() {
     setScore((prev) => prev + pts);
   }, []);
 
-  const {
-    canvasRef, nextIdx, gameOver, containerWidth,
-    startEngine, dropFruit, movePointer, stopEngine,
-    activateBomb, expandContainer,
-  } = useGame(handleScorePts, showToast);
-
   const handleTimerExpire = useCallback(() => {
     if (screenRef.current === S.PLAYING) {
       setFinalScore(scoreRef.current);
@@ -78,7 +72,14 @@ export default function App() {
     }
   }, []);
 
+  // useTimer must come before useGame so addTime is defined when passed in
   const { remaining, startTimer, addTime, stopTimer } = useTimer(handleTimerExpire);
+
+  const {
+    canvasRef, nextIdx, gameOver, containerWidth,
+    startEngine, dropFruit, movePointer, stopEngine,
+    activateBomb, expandContainer,
+  } = useGame(handleScorePts, showToast, addTime);
 
   const {
     entries: leaderboard,
