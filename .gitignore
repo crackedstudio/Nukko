@@ -1,0 +1,25 @@
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+
+# JetBrains
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Frontend dependencies (if you add a build step later)
+node_modules/
+dist/
+.next/

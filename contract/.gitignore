@@ -1,0 +1,14 @@
+# Environment — never commit secrets
+.env
+.env.local
+
+# Foundry build artifacts
+out/
+cache/
+
+# Foundry broadcast logs (contain tx hashes — safe to commit, but optional)
+# broadcast/
+
+# Coverage reports
+lcov.info
+coverage/

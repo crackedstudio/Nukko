@@ -1,0 +1,268 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+
+import { useWallet }      from './hooks/useWallet.js';
+import { useContract }    from './hooks/useContract.js';
+import { useTimer }       from './hooks/useTimer.js';
+import { useGame }        from './hooks/useGame.js';
+import { useLeaderboard } from './hooks/useLeaderboard.js';
+import { usePurchase }    from './hooks/usePurchase.js';
+import { useToast }       from './components/ui/Toast.jsx';
+
+import WalletConnect from './components/screens/WalletConnect.jsx';
+import SetUsername   from './components/screens/SetUsername.jsx';
+import Home          from './components/screens/Home.jsx';
+import Starting      from './components/screens/Starting.jsx';
+import Playing       from './components/screens/Playing.jsx';
+import Submitting    from './components/screens/Submitting.jsx';
+import Result        from './components/screens/Result.jsx';
+
+const S = {
+  WALLET_CONNECT: 'WALLET_CONNECT',
+  SET_USERNAME:   'SET_USERNAME',
+  HOME:           'HOME',
+  STARTING:       'STARTING',
+  PLAYING:        'PLAYING',
+  SUBMITTING:     'SUBMITTING',
+  RESULT:         'RESULT',
+};
+
+export default function App() {
+  const [screen,      setScreen]      = useState(S.WALLET_CONNECT);
+  const [profile,     setProfile]     = useState(null);
+  const [score,       setScore]       = useState(0);
+  const [finalScore,  setFinalScore]  = useState(0);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [resultRank,  setResultRank]  = useState(null);
+
+  // Refs prevent stale closures in timer/game callbacks
+  const screenRef  = useRef(screen);
+  const scoreRef   = useRef(0);
+  const profileRef = useRef(null);
+  useEffect(() => { screenRef.current  = screen;  }, [screen]);
+  useEffect(() => { scoreRef.current   = score;   }, [score]);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
+  // ── Hooks ──────────────────────────────────────────────────────────────────
+
+  const { address, walletClient, isMiniPay, connect, error: walletError } = useWallet();
+
+  const {
+    startGame: startGameTx,
+    submitScore: submitScoreTx,
+    setUsername: setUsernameTx,
+    getProfile,
+    getLeaderboard,
+    checkUsernameAvailable,
+  } = useContract(walletClient, address);
+
+  const { toast, showToast } = useToast();
+
+  const handleScorePts = useCallback((pts) => {
+    setScore((prev) => prev + pts);
+  }, []);
+
+  const {
+    canvasRef, nextIdx, gameOver,
+    startEngine, dropFruit, movePointer, stopEngine,
+  } = useGame(handleScorePts, showToast);
+
+  const handleTimerExpire = useCallback(() => {
+    if (screenRef.current === S.PLAYING) {
+      setFinalScore(scoreRef.current);
+      setScreen(S.SUBMITTING);
+    }
+  }, []);
+
+  const { remaining, startTimer, addTime, stopTimer } = useTimer(handleTimerExpire);
+
+  const {
+    entries: leaderboard,
+    loading: leaderboardLoading,
+    refresh: refreshLeaderboard,
+  } = useLeaderboard(getLeaderboard);
+
+  const {
+    packages,
+    selectedToken,
+    setSelectedToken,
+    purchase,
+    loading: purchaseLoading,
+  } = usePurchase(walletClient, address, addTime);
+
+  // ── Load profile after wallet connects ─────────────────────────────────────
+
+  useEffect(() => {
+    if (!address) return;
+    getProfile(address)
+      .then((p) => {
+        setProfile(p);
+        if (p.username) localStorage.setItem('nk_username', p.username);
+        setScreen(p.username ? S.HOME : S.SET_USERNAME);
+      })
+      .catch(console.error);
+  }, [address, getProfile]);
+
+  // ── Physics game-over → SUBMITTING ─────────────────────────────────────────
+
+  useEffect(() => {
+    if (!gameOver || screenRef.current !== S.PLAYING) return;
+    stopTimer();
+    setFinalScore(scoreRef.current);
+    setScreen(S.SUBMITTING);
+  }, [gameOver, stopTimer]);
+
+  // ── Canvas starts when PLAYING screen mounts ───────────────────────────────
+  // React sets canvasRef.current in commit phase, before effects run —
+  // canvas exists by the time this fires.
+
+  useEffect(() => {
+    if (screen !== S.PLAYING) return;
+    setScore(0);
+    scoreRef.current = 0;
+    startEngine();
+    startTimer();
+  }, [screen, startEngine, startTimer]);
+
+  // ── Submit score when SUBMITTING screen appears ─────────────────────────────
+
+  useEffect(() => {
+    if (screen !== S.SUBMITTING) return;
+
+    stopEngine();
+    const submitted = scoreRef.current;
+    // personalBest before this game — used to detect new record client-side
+    const prevBest  = profileRef.current?.personalBest ?? 0;
+
+    (async () => {
+      try {
+        await submitScoreTx(submitted);
+
+        // Contract only updates personalBest when score > previous best
+        const updated = await getProfile(address);
+        setProfile(updated);
+
+        const newRecord = submitted > prevBest;
+        setIsNewRecord(newRecord);
+        setFinalScore(submitted);
+
+        // Refresh leaderboard then find player's rank
+        await refreshLeaderboard();
+        const lb  = await getLeaderboard();
+        const idx = lb.findIndex(
+          (e) => e.address?.toLowerCase() === address?.toLowerCase(),
+        );
+        setResultRank(idx >= 0 ? idx + 1 : null);
+      } catch (err) {
+        console.error('submitScore failed:', err);
+        setFinalScore(submitted);
+      } finally {
+        setScreen(S.RESULT);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleStartGame = useCallback(async () => {
+    setScreen(S.STARTING);
+    try {
+      await startGameTx();
+      setScreen(S.PLAYING);
+    } catch (err) {
+      console.error('startGame failed:', err);
+      showToast('Failed to open session — try again');
+      setScreen(S.HOME);
+    }
+  }, [startGameTx, showToast]);
+
+  const handleSetUsername = useCallback(async (username) => {
+    await setUsernameTx(username);
+    const updated = await getProfile(address);
+    setProfile(updated);
+    setScreen(S.HOME);
+  }, [setUsernameTx, getProfile, address]);
+
+  const handlePurchase = useCallback(async (pkgIdx) => {
+    try {
+      const secs = await purchase(pkgIdx);
+      showToast(`+${secs}s ⏱`);
+    } catch (err) {
+      showToast(err.message || 'Purchase failed');
+    }
+  }, [purchase, showToast]);
+
+  // ── Screen routing ──────────────────────────────────────────────────────────
+
+  switch (screen) {
+    case S.WALLET_CONNECT:
+      return (
+        <WalletConnect
+          onConnect={connect}
+          isMiniPay={isMiniPay}
+          error={walletError}
+        />
+      );
+
+    case S.SET_USERNAME:
+      return (
+        <SetUsername
+          onSubmit={handleSetUsername}
+          onSkip={() => setScreen(S.HOME)}
+          checkUsernameAvailable={checkUsernameAvailable}
+        />
+      );
+
+    case S.HOME:
+      return (
+        <Home
+          profile={profile}
+          leaderboard={leaderboard}
+          leaderboardLoading={leaderboardLoading}
+          onStartGame={handleStartGame}
+        />
+      );
+
+    case S.STARTING:
+      return <Starting />;
+
+    case S.PLAYING:
+      return (
+        <Playing
+          canvasRef={canvasRef}
+          nextIdx={nextIdx}
+          score={score}
+          personalBest={profile?.personalBest ?? 0}
+          remaining={remaining}
+          packages={packages}
+          onPurchase={handlePurchase}
+          purchaseLoading={purchaseLoading}
+          selectedToken={selectedToken}
+          onSelectToken={setSelectedToken}
+          toast={toast}
+          movePointer={movePointer}
+          dropFruit={dropFruit}
+          gameOver={gameOver}
+        />
+      );
+
+    case S.SUBMITTING:
+      return <Submitting score={finalScore} />;
+
+    case S.RESULT:
+      return (
+        <Result
+          score={finalScore}
+          personalBest={profile?.personalBest ?? 0}
+          isNewRecord={isNewRecord}
+          rank={resultRank}
+          leaderboard={leaderboard}
+          leaderboardLoading={leaderboardLoading}
+          onPlayAgain={() => setScreen(S.HOME)}
+        />
+      );
+
+    default:
+      return null;
+  }
+}
