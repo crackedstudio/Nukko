@@ -7,6 +7,7 @@ import { useGame }        from './hooks/useGame.js';
 import { useLeaderboard } from './hooks/useLeaderboard.js';
 import { usePurchase }    from './hooks/usePurchase.js';
 import { usePowerUps }   from './hooks/usePowerUps.js';
+import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
 
 import WalletConnect from './components/screens/WalletConnect.jsx';
@@ -186,9 +187,9 @@ export default function App() {
       await startGameTx();
       setScreen(S.PLAYING);
     } catch (err) {
-      console.error('startGame failed:', err);
-      showToast('Failed to open session — try again');
+      // Cancelled dialog or real failure — either way go back to HOME
       setScreen(S.HOME);
+      if (!isUserRejection(err)) showToast('Failed to open session — try again');
     }
   }, [startGameTx, showToast]);
 
@@ -204,6 +205,7 @@ export default function App() {
       const secs = await purchase(pkgIdx);
       showToast(`+${secs}s ⏱`);
     } catch (err) {
+      if (isUserRejection(err)) return; // stay on game board
       showToast(err.message || 'Purchase failed');
     }
   }, [purchase, showToast]);
@@ -228,6 +230,7 @@ export default function App() {
       showToast(`+${qty} ${shop === 'bomb' ? '💣' : '📦'} added!`);
       setShop(null);
     } catch (err) {
+      if (isUserRejection(err)) { setShop(null); return; } // stay on game board
       showToast(err.message || 'Purchase failed');
     }
   }, [buyPowerUp, shop, showToast]);

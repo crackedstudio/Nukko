@@ -25,6 +25,24 @@ export function isMiniPay() {
  * @param {string}  [gas='0x493E0']  Hex gas limit — 300 000 default, enough for any call here
  * @returns {Promise<string>} Transaction hash
  */
+/**
+ * Returns true when the error is a user-initiated cancellation of the wallet
+ * dialog (EIP-1193 code 4001 or common rejection message strings).
+ * Use this to silently redirect rather than showing a cryptic error toast.
+ */
+export function isUserRejection(err) {
+  if (!err) return false;
+  if (err.code === 4001) return true;
+  const msg = (err.message || err.data?.message || '').toLowerCase();
+  return (
+    msg.includes('user rejected') ||
+    msg.includes('user denied') ||
+    msg.includes('rejected by user') ||
+    msg.includes('cancelled') ||
+    msg.includes('canceled')
+  );
+}
+
 export async function miniPaySend(to, data, gas = '0x493E0') {
   const accounts = await window.ethereum.request({ method: 'eth_accounts' });
   return window.ethereum.request({
