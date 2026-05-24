@@ -55,6 +55,8 @@ export default function Playing({
   gameOver,
 }) {
   const pointerActiveRef = useRef(false);
+  // Tracks pointer position for keyboard control (arrow keys + space)
+  const kbXRef = useRef((containerWidth ?? 320) / 2);
 
   // Draw the "next planet" preview canvas
   useEffect(() => {
@@ -75,6 +77,11 @@ export default function Playing({
     return clientX - rect.left;
   }, [canvasRef, containerWidth]);
 
+  // ── Pointer + touch events ─────────────────────────────────────────────────
+  // Drop fires only on pointerup (unified for mouse + touch via pointer events).
+  // touchmove is kept solely to call e.preventDefault() — prevents page scroll
+  // on iOS webviews that ignore touch-action:none on canvas. touchend is NOT
+  // registered so drops never double-fire on mobile.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -88,23 +95,42 @@ export default function Playing({
       pointerActiveRef.current = false;
       dropFruit();
     };
-    const onTouchMove = (e) => { e.preventDefault(); if (!gameOver) movePointer(getX(e)); };
-    const onTouchEnd  = (e) => { e.preventDefault(); if (!gameOver) dropFruit(); };
+    // touchmove: prevent scroll only — pointer events handle the actual movement
+    const onTouchMove = (e) => { e.preventDefault(); };
 
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointerup',   onPointerUp);
     canvas.addEventListener('touchmove',   onTouchMove, { passive: false });
-    canvas.addEventListener('touchend',    onTouchEnd,  { passive: false });
 
     return () => {
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup',   onPointerUp);
       canvas.removeEventListener('touchmove',   onTouchMove);
-      canvas.removeEventListener('touchend',    onTouchEnd);
     };
   }, [canvasRef, gameOver, movePointer, dropFruit, getX]);
+
+  // ── Keyboard controls (desktop: ← → to aim, Space to drop) ───────────────
+  useEffect(() => {
+    const STEP = 10;
+    const onKeyDown = (e) => {
+      if (gameOver) return;
+      const cw = containerWidth ?? 320;
+      if (e.key === 'ArrowLeft') {
+        kbXRef.current = Math.max(0, kbXRef.current - STEP);
+        movePointer(kbXRef.current);
+      } else if (e.key === 'ArrowRight') {
+        kbXRef.current = Math.min(cw, kbXRef.current + STEP);
+        movePointer(kbXRef.current);
+      } else if (e.key === ' ') {
+        e.preventDefault(); // block page scroll
+        dropFruit();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [gameOver, movePointer, dropFruit, containerWidth]);
 
   const urgent = remaining <= 10;
   const sessionInfo = SESSION_LABEL[sessionStatus] ?? null;
@@ -144,7 +170,7 @@ export default function Playing({
               </div>
             </div>
 
-            {/* Score + next preview */}
+            {/* Score + PB + next preview */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <div style={{
@@ -172,6 +198,19 @@ export default function Playing({
                 }}>
                   {Number(score).toLocaleString()}
                 </div>
+                {/* Personal best — shown when available, highlights if beating it */}
+                {personalBest > 0 && (
+                  <div style={{
+                    fontFamily: '"Nunito", system-ui', fontSize: 9,
+                    color: score > personalBest ? 'rgba(0,212,255,0.8)' : 'rgba(255,255,255,0.3)',
+                    fontVariantNumeric: 'tabular-nums',
+                    marginTop: 2,
+                    transition: 'color 0.4s ease',
+                  }}>
+                    PB {Number(personalBest).toLocaleString()}
+                    {score > personalBest && ' 🔥'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
