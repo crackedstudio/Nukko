@@ -7,9 +7,17 @@ import PowerUpShop   from '../ui/PowerUpShop.jsx';
 import Toast         from '../ui/Toast.jsx';
 import { FRUITS, drawFruitOnCtx } from '../../game/fruits.js';
 
+const SESSION_LABEL = {
+  pending:   { dot: 'amber', text: 'Confirming…' },
+  confirmed: { dot: 'green', text: 'Session active' },
+  failed:    { dot: 'red',   text: 'Session failed' },
+  idle:      null,
+};
+
 export default function Playing({
   canvasRef,
   nextIdx,
+  sessionStatus,
   score,
   personalBest,
   remaining,
@@ -97,6 +105,13 @@ export default function Playing({
         <Timer remaining={remaining} />
         <ScoreBox label="BEST"  value={personalBest} />
       </div>
+
+      {SESSION_LABEL[sessionStatus] && (
+        <div className={`session-badge session-badge--${SESSION_LABEL[sessionStatus].dot}`}>
+          <span className="session-dot" />
+          {SESSION_LABEL[sessionStatus].text}
+        </div>
+      )}
 
       <div className="next-box-wrap">
         <div className="next-box">

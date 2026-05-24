@@ -35,7 +35,8 @@ export default function App() {
   const [finalScore,  setFinalScore]  = useState(0);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [resultRank,  setResultRank]  = useState(null);
-  const [shop,        setShop]        = useState(null); // 'bomb' | 'expand' | null
+  const [shop,          setShop]          = useState(null); // 'bomb' | 'expand' | null
+  const [sessionStatus, setSessionStatus] = useState('idle'); // 'idle'|'pending'|'confirmed'|'failed'
 
   // Refs prevent stale closures in timer/game callbacks
   const screenRef  = useRef(screen);
@@ -128,9 +129,7 @@ export default function App() {
     setScreen(S.SUBMITTING);
   }, [gameOver, stopTimer]);
 
-  // ── Canvas starts when PLAYING screen mounts ───────────────────────────────
-  // React sets canvasRef.current in commit phase, before effects run —
-  // canvas exists by the time this fires.
+  // ── Engine starts the moment the PLAYING screen mounts ────────────────────
 
   useEffect(() => {
     if (screen !== S.PLAYING) return;
@@ -182,16 +181,22 @@ export default function App() {
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleStartGame = useCallback(async () => {
-    setScreen(S.STARTING);
+    setSessionStatus('pending');
+    setScreen(S.PLAYING); // game starts immediately — tx fires concurrently
     try {
       await startGameTx();
-      setScreen(S.PLAYING);
+      setSessionStatus('confirmed');
     } catch (err) {
-      // Cancelled dialog or real failure — either way go back to HOME
-      setScreen(S.HOME);
-      if (!isUserRejection(err)) showToast('Failed to open session — try again');
+      if (isUserRejection(err)) {
+        stopEngine();
+        stopTimer();
+        setSessionStatus('idle');
+        setScreen(S.HOME);
+        return;
+      }
+      setSessionStatus('failed');
     }
-  }, [startGameTx, showToast]);
+  }, [startGameTx, stopEngine, stopTimer]);
 
   const handleSetUsername = useCallback(async (username) => {
     await setUsernameTx(username);
@@ -274,6 +279,7 @@ export default function App() {
         <Playing
           canvasRef={canvasRef}
           nextIdx={nextIdx}
+          sessionStatus={sessionStatus}
           score={score}
           personalBest={profile?.personalBest ?? 0}
           remaining={remaining}
