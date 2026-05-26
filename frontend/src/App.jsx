@@ -133,6 +133,8 @@ export default function App() {
   }, [gameOver, stopTimer]);
 
   // ── Engine starts the moment the PLAYING screen mounts ────────────────────
+  // startEngine() reads window.innerWidth automatically so the canvas fills
+  // the full device width without needing to measure the DOM first.
 
   useEffect(() => {
     if (screen !== S.PLAYING) return;

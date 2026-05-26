@@ -1,20 +1,23 @@
-// Cosmic planet data — radii and pts unchanged so physics/scoring stays identical
+// Cosmic planet data — 14 stages from pebble to black hole
 export const FRUITS = [
-  { name: 'Space Pebble',  r: 14, color: '#9b8e8a', pts: 1,   stage: 1  },
-  { name: 'Meteorite',     r: 20, color: '#6b3a1a', pts: 3,   stage: 2  },
-  { name: 'Asteroid',      r: 26, color: '#4a4651', pts: 6,   stage: 3  },
-  { name: 'Comet',         r: 33, color: '#a8e8ff', pts: 10,  stage: 4  },
-  { name: 'Moon',          r: 40, color: '#c9c4ba', pts: 15,  stage: 5  },
-  { name: 'Dwarf Planet',  r: 47, color: '#d4a574', pts: 21,  stage: 6  },
-  { name: 'Rocky Planet',  r: 54, color: '#c7553f', pts: 28,  stage: 7  },
-  { name: 'Ocean Planet',  r: 62, color: '#2a78d4', pts: 36,  stage: 8  },
-  { name: 'Ringed Planet', r: 70, color: '#e8b85c', pts: 45,  stage: 9  },
-  { name: 'Gas Giant',     r: 79, color: '#e89968', pts: 55,  stage: 10 },
-  { name: 'Brown Dwarf',   r: 90, color: '#7a2818', pts: 100, stage: 11 },
+  { name: 'Space Pebble',  r: 14,  color: '#9b8e8a', pts: 1,   stage: 1  },
+  { name: 'Meteorite',     r: 20,  color: '#6b3a1a', pts: 3,   stage: 2  },
+  { name: 'Asteroid',      r: 26,  color: '#4a4651', pts: 6,   stage: 3  },
+  { name: 'Comet',         r: 33,  color: '#a8e8ff', pts: 10,  stage: 4  },
+  { name: 'Moon',          r: 40,  color: '#c9c4ba', pts: 15,  stage: 5  },
+  { name: 'Dwarf Planet',  r: 47,  color: '#d4a574', pts: 21,  stage: 6  },
+  { name: 'Rocky Planet',  r: 54,  color: '#c7553f', pts: 28,  stage: 7  },
+  { name: 'Ocean Planet',  r: 62,  color: '#2a78d4', pts: 36,  stage: 8  },
+  { name: 'Ringed Planet', r: 70,  color: '#e8b85c', pts: 45,  stage: 9  },
+  { name: 'Gas Giant',     r: 79,  color: '#e89968', pts: 55,  stage: 10 },
+  { name: 'Brown Dwarf',   r: 90,  color: '#7a2818', pts: 100, stage: 11 },
+  { name: 'Star',          r: 100, color: '#ffcc00', pts: 136, stage: 12 },
+  { name: 'Neutron Star',  r: 112, color: '#b0d4ff', pts: 190, stage: 13 },
+  { name: 'Black Hole',    r: 126, color: '#4b0082', pts: 260, stage: 14 },
 ];
 
 export function randFruitIdx() {
-  return Math.floor(Math.random() * 5);
+  return Math.floor(Math.random() * 6);
 }
 
 // Helper: radial gradient with highlight offset (top-left lit)
@@ -35,7 +38,6 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.96, 0, Math.PI * 2);
       ctx.fillStyle = rg(ctx, cx, cy, r, [[0,'#d4cbc3'],[0.6,'#9b8e8a'],[1,'#5a4f4a']]);
       ctx.fill();
-      // craters
       [[cx+r*.3, cy+r*.25, r*.15],[cx-r*.35, cy+r*.4, r*.08],[cx-r*.12, cy-r*.32, r*.06]]
         .forEach(([x,y,cr]) => {
           ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.arc(x,y,cr,0,Math.PI*2); ctx.fill();
@@ -48,10 +50,8 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
       ctx.fillStyle = rg(ctx, cx, cy, r, [[0,'#8a4a2a'],[0.7,'#4a2410'],[1,'#2a1408']]);
       ctx.fill();
       ctx.lineCap = 'round';
-      // crack 1 — bright orange
       ctx.strokeStyle = '#ff7a2a'; ctx.lineWidth = Math.max(1, r * 0.07); ctx.globalAlpha = alpha * 0.92;
       ctx.beginPath(); ctx.moveTo(cx-r*.5,cy-r*.2); ctx.lineTo(cx+r*.1,cy+r*.1); ctx.lineTo(cx+r*.4,cy-r*.4); ctx.stroke();
-      // crack 2 — lighter
       ctx.strokeStyle = '#ff9d4a'; ctx.lineWidth = Math.max(0.5, r * 0.045); ctx.globalAlpha = alpha * 0.8;
       ctx.beginPath(); ctx.moveTo(cx-r*.28,cy+r*.5); ctx.lineTo(cx+r*.05,cy+r*.2); ctx.stroke();
       break;
@@ -69,7 +69,6 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
     }
 
     case 3: { // ── Comet — icy blue-white with tail
-      // tail first (behind body)
       ctx.save(); ctx.globalAlpha = alpha * 0.4;
       const tail = ctx.createLinearGradient(cx - r*1.5, cy, cx - r*0.2, cy);
       tail.addColorStop(0, 'rgba(168,232,255,0)'); tail.addColorStop(1, 'rgba(168,232,255,0.72)');
@@ -77,7 +76,6 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
       ctx.beginPath();
       ctx.moveTo(cx-r*.2, cy-r*.42); ctx.quadraticCurveTo(cx-r*1.6, cy, cx-r*.2, cy+r*.42);
       ctx.closePath(); ctx.fill(); ctx.restore();
-      // body
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
       ctx.fillStyle = rg(ctx, cx, cy, r, [[0,'#ffffff'],[0.55,'#a8e8ff'],[1,'#3d8fb8']]);
       ctx.fill();
@@ -148,34 +146,26 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
         rg2.addColorStop(1, 'rgba(212,168,90,0.28)');
         return rg2;
       };
-
-      // 1 — back half of ring (clip to top half of planet space)
       ctx.save();
       ctx.beginPath(); ctx.rect(cx - r*2, cy - r*2, r*4, r*2); ctx.clip();
       ctx.translate(cx, cy); ctx.rotate(-0.32);
       ctx.beginPath(); ctx.ellipse(0, 0, r*1.35, r*0.32, 0, 0, Math.PI*2);
       ctx.strokeStyle = ringGradFn(); ctx.lineWidth = r * 0.14; ctx.stroke();
       ctx.restore();
-
-      // 2 — planet body (covers centre of ring)
       const pg = rg(ctx, cx, cy, r * 0.78, [[0,'#fff0b8'],[0.6,'#e8b85c'],[1,'#7a4a18']]);
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.78, 0, Math.PI * 2);
       ctx.fillStyle = pg; ctx.fill();
-      // bands (clip to planet disk)
       ctx.save();
       ctx.beginPath(); ctx.arc(cx, cy, r*0.78, 0, Math.PI*2); ctx.clip();
       ctx.globalAlpha = alpha * 0.4; ctx.fillStyle = '#a86a18';
       ctx.fillRect(cx-r, cy-r*.22, r*2, r*.1);
       ctx.fillRect(cx-r, cy+r*.13, r*2, r*.12);
       ctx.restore();
-
-      // 3 — front half of ring (clip to bottom half of planet space)
       ctx.save();
       ctx.beginPath(); ctx.rect(cx - r*2, cy, r*4, r*2); ctx.clip();
       ctx.translate(cx, cy); ctx.rotate(-0.32);
       ctx.beginPath(); ctx.ellipse(0, 0, r*1.35, r*0.32, 0, 0, Math.PI*2);
       ctx.strokeStyle = ringGradFn(); ctx.lineWidth = r * 0.14; ctx.stroke();
-      // thin inner ring line
       ctx.beginPath(); ctx.ellipse(0, 0, r*1.1, r*0.26, 0, 0, Math.PI*2);
       ctx.strokeStyle = 'rgba(248,228,168,0.55)'; ctx.lineWidth = r * 0.016; ctx.stroke();
       ctx.restore();
@@ -186,7 +176,6 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.96, 0, Math.PI * 2);
       ctx.fillStyle = rg(ctx, cx, cy, r, [[0,'#ffd4a8'],[0.6,'#e89968'],[1,'#6e3a18']]);
       ctx.fill();
-      // clip bands + spot to disk
       ctx.save();
       ctx.beginPath(); ctx.arc(cx, cy, r*0.96, 0, Math.PI*2); ctx.clip();
       ctx.globalAlpha = alpha * 0.55; ctx.fillStyle = '#a86838';
@@ -203,20 +192,177 @@ export function drawFruitOnCtx(ctx, cx, cy, radius, idx, alpha = 1) {
     }
 
     case 10: { // ── Brown Dwarf — dark red with outer glow + bands
-      // glow halo
       ctx.save(); ctx.globalAlpha = alpha * 0.38;
       const halo = ctx.createRadialGradient(cx, cy, r*0.6, cx, cy, r*1.25);
       halo.addColorStop(0, 'rgba(255,106,42,0.55)'); halo.addColorStop(1, 'rgba(255,106,42,0)');
       ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r*1.25, 0, Math.PI*2); ctx.fill();
       ctx.restore();
-      // body — centred gradient (not offset) for the dark dwarf look
       const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r*0.92);
       bg.addColorStop(0, '#e85c2a'); bg.addColorStop(0.4, '#a83818'); bg.addColorStop(1, '#2a0a08');
       ctx.beginPath(); ctx.arc(cx, cy, r*0.92, 0, Math.PI*2); ctx.fillStyle = bg; ctx.fill();
-      // surface bands
       ctx.save(); ctx.globalAlpha = alpha * 0.35; ctx.fillStyle = '#ff8a4a';
       ctx.beginPath(); ctx.ellipse(cx-r*.2, cy-r*.1, r*.3, r*.1, 0, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.ellipse(cx+r*.15, cy+r*.3, r*.35, r*.1, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      break;
+    }
+
+    case 11: { // ── Star — glowing yellow sun with radiant spikes
+      // Outer glow halo
+      ctx.save(); ctx.globalAlpha = alpha * 0.45;
+      const halo = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.9);
+      halo.addColorStop(0, 'rgba(255,220,60,0.8)');
+      halo.addColorStop(1, 'rgba(255,120,0,0)');
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // 8 radiating spikes
+      ctx.save(); ctx.translate(cx, cy);
+      for (let i = 0; i < 8; i++) {
+        ctx.save(); ctx.rotate((i / 8) * Math.PI * 2);
+        const spk = ctx.createLinearGradient(0, -r * 0.72, 0, -r * 1.6);
+        spk.addColorStop(0, `rgba(255,240,100,${alpha * 0.95})`);
+        spk.addColorStop(1, `rgba(255,180,0,0)`);
+        ctx.fillStyle = spk;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.07, -r * 0.72);
+        ctx.lineTo(0, -r * 1.6);
+        ctx.lineTo(r * 0.07, -r * 0.72);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+
+      // Body
+      const sg = ctx.createRadialGradient(cx - r*0.28, cy - r*0.28, 0, cx, cy, r);
+      sg.addColorStop(0, '#fffde0');
+      sg.addColorStop(0.35, '#ffdc00');
+      sg.addColorStop(0.75, '#ff9900');
+      sg.addColorStop(1, '#cc5500');
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.fillStyle = sg; ctx.fill();
+
+      // Surface convection cells
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.clip();
+      ctx.globalAlpha = alpha * 0.22;
+      ctx.fillStyle = '#ff6600';
+      ctx.beginPath(); ctx.ellipse(cx - r*0.3, cy + r*0.2, r*0.28, r*0.18, 0.4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + r*0.35, cy - r*0.25, r*0.22, r*0.14, -0.3, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      break;
+    }
+
+    case 12: { // ── Neutron Star — blue-white with cross pulsar jets
+      // Outer diffuse glow
+      ctx.save(); ctx.globalAlpha = alpha * 0.5;
+      const og = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 2.2);
+      og.addColorStop(0, 'rgba(200,230,255,0.9)');
+      og.addColorStop(1, 'rgba(80,140,255,0)');
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(cx, cy, r * 2.2, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // Cross pulsar jets (4 axes)
+      ctx.save(); ctx.translate(cx, cy);
+      const jetAngles = [0, Math.PI/2, Math.PI, Math.PI*1.5];
+      jetAngles.forEach((angle) => {
+        ctx.save(); ctx.rotate(angle);
+        const jet = ctx.createLinearGradient(0, 0, 0, -r * 1.85);
+        jet.addColorStop(0, `rgba(255,255,255,${alpha * 0.9})`);
+        jet.addColorStop(0.4, `rgba(160,210,255,${alpha * 0.6})`);
+        jet.addColorStop(1, 'rgba(100,180,255,0)');
+        ctx.fillStyle = jet;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.055, 0);
+        ctx.lineTo(0, -r * 1.85);
+        ctx.lineTo(r * 0.055, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+      // Diagonal jets (shorter)
+      const diagAngles = [Math.PI/4, Math.PI*3/4, Math.PI*5/4, Math.PI*7/4];
+      diagAngles.forEach((angle) => {
+        ctx.save(); ctx.rotate(angle);
+        const jet2 = ctx.createLinearGradient(0, 0, 0, -r * 1.2);
+        jet2.addColorStop(0, `rgba(200,230,255,${alpha * 0.55})`);
+        jet2.addColorStop(1, 'rgba(100,180,255,0)');
+        ctx.fillStyle = jet2;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.035, 0);
+        ctx.lineTo(0, -r * 1.2);
+        ctx.lineTo(r * 0.035, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      });
+      ctx.restore();
+
+      // Body
+      const nb = ctx.createRadialGradient(cx - r*0.25, cy - r*0.25, 0, cx, cy, r);
+      nb.addColorStop(0, '#ffffff');
+      nb.addColorStop(0.3, '#d0eaff');
+      nb.addColorStop(0.7, '#6090e0');
+      nb.addColorStop(1, '#203090');
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.fillStyle = nb; ctx.fill();
+
+      // Inner ring
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.82, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = r * 0.04; ctx.stroke();
+      break;
+    }
+
+    case 13: { // ── Black Hole — event horizon with golden accretion disk
+      // Deep purple outer glow
+      ctx.save(); ctx.globalAlpha = alpha * 0.55;
+      const purpleGlow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 2.6);
+      purpleGlow.addColorStop(0, 'rgba(120,0,200,0.6)');
+      purpleGlow.addColorStop(0.5, 'rgba(60,0,120,0.3)');
+      purpleGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = purpleGlow; ctx.beginPath(); ctx.arc(cx, cy, r * 2.6, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      // Accretion disk — drawn before event horizon so disk appears to wrap around
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.22);
+
+      // Back half (drawn first, partly hidden by event horizon)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(-r*2, -r*2, r*4, r*2); ctx.clip();
+      const diskBack = ctx.createLinearGradient(-r*1.7, 0, r*1.7, 0);
+      diskBack.addColorStop(0, 'rgba(140,60,0,0.25)');
+      diskBack.addColorStop(0.25, 'rgba(255,140,0,0.55)');
+      diskBack.addColorStop(0.5, 'rgba(255,210,60,0.7)');
+      diskBack.addColorStop(0.75, 'rgba(255,140,0,0.55)');
+      diskBack.addColorStop(1, 'rgba(140,60,0,0.25)');
+      ctx.strokeStyle = diskBack; ctx.lineWidth = r * 0.22;
+      ctx.beginPath(); ctx.ellipse(0, 0, r*1.62, r*0.36, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+
+      ctx.restore(); // end disk transform
+
+      // Event horizon — black circle
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.88, 0, Math.PI*2);
+      ctx.fillStyle = '#000000'; ctx.fill();
+
+      // Photon ring glow
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.92, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,200,60,0.7)'; ctx.lineWidth = r * 0.07; ctx.stroke();
+
+      // Accretion disk front half (in front of event horizon)
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.22);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(-r*2, 0, r*4, r*2); ctx.clip();
+      const diskFront = ctx.createLinearGradient(-r*1.7, 0, r*1.7, 0);
+      diskFront.addColorStop(0, 'rgba(160,70,0,0.35)');
+      diskFront.addColorStop(0.25, 'rgba(255,160,20,0.85)');
+      diskFront.addColorStop(0.5, 'rgba(255,230,80,1)');
+      diskFront.addColorStop(0.75, 'rgba(255,160,20,0.85)');
+      diskFront.addColorStop(1, 'rgba(160,70,0,0.35)');
+      ctx.strokeStyle = diskFront; ctx.lineWidth = r * 0.22;
+      ctx.beginPath(); ctx.ellipse(0, 0, r*1.62, r*0.36, 0, 0, Math.PI*2); ctx.stroke();
+      // Inner bright ring
+      ctx.strokeStyle = 'rgba(255,245,160,0.5)'; ctx.lineWidth = r * 0.07;
+      ctx.beginPath(); ctx.ellipse(0, 0, r*1.45, r*0.3, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
       ctx.restore();
       break;
     }

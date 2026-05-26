@@ -9,8 +9,8 @@ const MAX_W         = 440;
 const EXPAND_PX     = 30;
 const H             = 480;
 const WALL          = 60;
-const DANGER_Y      = 80;
-const DROP_COOLDOWN = 250;
+const DANGER_Y      = 105;
+const DROP_COOLDOWN = 380;
 const CHAIN_WINDOW  = 450; // ms — merges within this window count as a chain
 const CHAIN_MAX     = 8;   // multiplier cap
 
@@ -34,9 +34,9 @@ function estimateLandingY(dropX, fruitR, bodies, containerW) {
 }
 
 function mergeTimeBonus(newIdx) {
-  if (newIdx >= 8) return 5;
-  if (newIdx >= 5) return Math.random() < 0.5 ? 2 : 5;
-  return 2;
+  if (newIdx >= 8) return 3;
+  if (newIdx >= 5) return 1;
+  return 0;
 }
 
 function haptic(pattern) {
@@ -137,27 +137,22 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
   const render = useCallback((dt = 16.67) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const cw  = containerWRef.current;
-    const dpr = window.devicePixelRatio || 1;
+    const cw = containerWRef.current;
 
-    // Ensure canvas physical pixels match DPR
-    const wantW = Math.round(cw  * dpr);
-    const wantH = Math.round(H   * dpr);
-    if (canvas.width !== wantW || canvas.height !== wantH) {
-      canvas.width  = wantW;
-      canvas.height = wantH;
-      canvas.style.width  = cw + 'px';
-      canvas.style.height = H  + 'px';
+    // Cache the 2D context; invalidate if canvas size changed (e.g. on expand)
+    if (!ctxRef.current || canvas.width !== cw || canvas.height !== H) {
+      // Let React control canvas.width/height via JSX — don't fight it here.
+      // We only check sizes to know when to invalidate the gradient cache.
       ctxRef.current = null;
       gradCacheRef.current = {};
     }
-
-    if (!ctxRef.current) ctxRef.current = canvas.getContext('2d');
+    if (!ctxRef.current) {
+      const c = canvas.getContext('2d');
+      if (!c) return; // safety guard — can happen during teardown
+      ctxRef.current = c;
+    }
     const ctx = ctxRef.current;
     const now = Date.now();
-
-    // DPR transform — logical coords throughout
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // dt-normalized lerp coefficient (same feel at any frame rate)
     const lerpK = 1 - Math.pow(0.35, dt / 16.67);
@@ -189,6 +184,20 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     // ── Background ───────────────────────────────────────────────────────────
     ctx.fillStyle = '#050009';
     ctx.fillRect(0, 0, cw, H);
+
+    // ── Danger flash — red vignette pulsing over entire canvas ───────────────
+    if (isDangerRef.current) {
+      const pulse = 0.5 + 0.5 * Math.sin((now / 280) * Math.PI);
+      // radial vignette: transparent centre → red edges
+      const vg = ctx.createRadialGradient(cw / 2, H / 2, Math.min(cw, H) * 0.18, cw / 2, H / 2, Math.max(cw, H) * 0.85);
+      vg.addColorStop(0, 'rgba(255,20,20,0)');
+      vg.addColorStop(1, `rgba(255,20,20,${0.32 * pulse})`);
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, cw, H);
+      // thin overall tint so even the centre isn't clean white
+      ctx.fillStyle = `rgba(255,0,0,${0.06 * pulse})`;
+      ctx.fillRect(0, 0, cw, H);
+    }
 
     // ── Wall glow ────────────────────────────────────────────────────────────
     if (wallGlowRef.current) {
@@ -249,7 +258,7 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
       if (top < minBodyTop) minBodyTop = top;
     }
     const isInDanger = minBodyTop < DANGER_Y && bodies.some(
-      b => b.speed < 0.8 && b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y,
+      b => b.speed < 2.0 && b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y,
     );
     // Trigger/stop danger heartbeat audio
     if (isInDanger && !isDangerRef.current) {
@@ -654,36 +663,41 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     ctx.restore(); // end root save
   }, [getGrad]);
 
-  // ── Game-over detection (with 1200ms debounce after last drop) ──────────────
+  // ── Game-over detection ──────────────────────────────────────────────────────
   const checkGameOver = useCallback(() => {
     if (gameOverRef.current) return;
     const sinceLastDrop = Date.now() - lastDropTimeRef.current;
-    if (sinceLastDrop < 1200) return; // grace period
+    if (sinceLastDrop < 500) return; // short grace right after a drop
 
-    for (const b of bodiesRef.current) {
-      if (b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y && b.speed < 0.5) {
-        if (gameOverPendingRef.current) return;
-        gameOverPendingRef.current = true;
-        // Confirm still over after 400ms (bodies may still be settling)
-        setTimeout(() => {
-          if (gameOverRef.current) return;
-          const still = bodiesRef.current.some(
-            b2 => b2.position.y - FRUITS[b2.fruitIdx].r < DANGER_Y && b2.speed < 0.5,
-          );
-          if (still) {
-            gameOverRef.current = true;
-            setGameOver(true);
-            cancelAnimationFrame(gameLoopRef.current);
-            audioRef.current?.stopDanger?.();
-            audioRef.current?.playGameOver?.();
-          } else {
-            gameOverPendingRef.current = false;
-          }
-        }, 400);
-        return;
-      }
+    // Any fruit whose TOP is above the danger line counts — speed threshold
+    // is loose (< 2.0) because higher gravity keeps bodies subtly moving even
+    // when settled on a pile.
+    const inDanger = bodiesRef.current.some(
+      b => b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y && b.speed < 2.0,
+    );
+
+    if (inDanger) {
+      if (gameOverPendingRef.current) return;
+      gameOverPendingRef.current = true;
+      // Confirm after 600ms — body must still be in zone and mostly still
+      setTimeout(() => {
+        if (gameOverRef.current) return;
+        const still = bodiesRef.current.some(
+          b2 => b2.position.y - FRUITS[b2.fruitIdx].r < DANGER_Y && b2.speed < 3.0,
+        );
+        if (still) {
+          gameOverRef.current = true;
+          setGameOver(true);
+          cancelAnimationFrame(gameLoopRef.current);
+          audioRef.current?.stopDanger?.();
+          audioRef.current?.playGameOver?.();
+        } else {
+          gameOverPendingRef.current = false;
+        }
+      }, 600);
+    } else {
+      gameOverPendingRef.current = false;
     }
-    gameOverPendingRef.current = false;
   }, []);
 
   // ── Merge collision handler ─────────────────────────────────────────────────
@@ -778,7 +792,7 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
   // ── Physics init ────────────────────────────────────────────────────────────
   const initPhysics = useCallback(() => {
     const cw     = containerWRef.current;
-    const engine = Engine.create({ gravity: { y: 28 } });
+    const engine = Engine.create({ gravity: { y: 38 } });
     const world  = engine.world;
     engineRef.current = engine;
     worldRef.current  = world;
@@ -827,7 +841,12 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
   }, [render, checkGameOver]);
 
   // ── Public API ──────────────────────────────────────────────────────────────
-  const startEngine = useCallback(() => {
+  const startEngine = useCallback((dims) => {
+    // Use the actual app-container width (respects #root max-width on desktop).
+    // Falls back to window.innerWidth for full-screen mobile WebViews.
+    const rootW = document.getElementById('root')?.offsetWidth ?? window.innerWidth;
+    const initialW = Math.min(dims?.w ?? rootW, MAX_W);
+
     if (engineRef.current) {
       cancelAnimationFrame(gameLoopRef.current);
       World.clear(worldRef.current);
@@ -857,14 +876,14 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     chainCountRef.current     = 0;
     lastMergeTimeRef.current  = 0;
     lastDropTimeRef.current   = 0;
-    containerWRef.current     = BASE_W;
-    dropXRef.current          = BASE_W / 2;
-    dropXTargetRef.current    = BASE_W / 2;
+    containerWRef.current     = initialW;
+    dropXRef.current          = initialW / 2;
+    dropXTargetRef.current    = initialW / 2;
     ctxRef.current            = null;
     gradCacheRef.current      = {};
 
     vacuumStarsRef.current = Array.from({ length: 38 }, () => ({
-      x:     Math.random() * BASE_W,
+      x:     Math.random() * initialW,
       y:     Math.random() * H,
       r:     Math.random() * 1.1 + 0.25,
       o:     Math.random() * 0.5 + 0.15,
@@ -882,7 +901,7 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     setNextIdx(ni);
     setNextNextIdx(nni);
     setGameOver(false);
-    setContainerWidth(BASE_W);
+    setContainerWidth(initialW);
 
     initPhysics();
     startLoop();
