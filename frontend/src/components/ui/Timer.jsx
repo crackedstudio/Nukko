@@ -7,7 +7,7 @@ function fmt(s) {
 export default function Timer({ remaining }) {
   return (
     <div className={`timer ${remaining <= 10 ? 'urgent' : ''}`}>
-      ⏱ {fmt(remaining)}
+      {fmt(remaining)}
     </div>
   );
 }

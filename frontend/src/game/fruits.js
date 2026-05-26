@@ -1,16 +1,16 @@
 // Cosmic planet data — radii and pts unchanged so physics/scoring stays identical
 export const FRUITS = [
-  { name: 'Space Pebble',  r: 14, color: '#9b8e8a', pts: 1,   emoji: '🪨', stage: 1  },
-  { name: 'Meteorite',     r: 20, color: '#6b3a1a', pts: 3,   emoji: '☄️',  stage: 2  },
-  { name: 'Asteroid',      r: 26, color: '#4a4651', pts: 6,   emoji: '🌑', stage: 3  },
-  { name: 'Comet',         r: 33, color: '#a8e8ff', pts: 10,  emoji: '💫', stage: 4  },
-  { name: 'Moon',          r: 40, color: '#c9c4ba', pts: 15,  emoji: '🌕', stage: 5  },
-  { name: 'Dwarf Planet',  r: 47, color: '#d4a574', pts: 21,  emoji: '🔴', stage: 6  },
-  { name: 'Rocky Planet',  r: 54, color: '#c7553f', pts: 28,  emoji: '🌍', stage: 7  },
-  { name: 'Ocean Planet',  r: 62, color: '#2a78d4', pts: 36,  emoji: '🌊', stage: 8  },
-  { name: 'Ringed Planet', r: 70, color: '#e8b85c', pts: 45,  emoji: '🪐', stage: 9  },
-  { name: 'Gas Giant',     r: 79, color: '#e89968', pts: 55,  emoji: '🌀', stage: 10 },
-  { name: 'Brown Dwarf',   r: 90, color: '#7a2818', pts: 100, emoji: '🟤', stage: 11 },
+  { name: 'Space Pebble',  r: 14, color: '#9b8e8a', pts: 1,   stage: 1  },
+  { name: 'Meteorite',     r: 20, color: '#6b3a1a', pts: 3,   stage: 2  },
+  { name: 'Asteroid',      r: 26, color: '#4a4651', pts: 6,   stage: 3  },
+  { name: 'Comet',         r: 33, color: '#a8e8ff', pts: 10,  stage: 4  },
+  { name: 'Moon',          r: 40, color: '#c9c4ba', pts: 15,  stage: 5  },
+  { name: 'Dwarf Planet',  r: 47, color: '#d4a574', pts: 21,  stage: 6  },
+  { name: 'Rocky Planet',  r: 54, color: '#c7553f', pts: 28,  stage: 7  },
+  { name: 'Ocean Planet',  r: 62, color: '#2a78d4', pts: 36,  stage: 8  },
+  { name: 'Ringed Planet', r: 70, color: '#e8b85c', pts: 45,  stage: 9  },
+  { name: 'Gas Giant',     r: 79, color: '#e89968', pts: 55,  stage: 10 },
+  { name: 'Brown Dwarf',   r: 90, color: '#7a2818', pts: 100, stage: 11 },
 ];
 
 export function randFruitIdx() {

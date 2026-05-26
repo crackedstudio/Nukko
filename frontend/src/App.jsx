@@ -9,6 +9,7 @@ import { usePurchase }    from './hooks/usePurchase.js';
 import { usePowerUps }   from './hooks/usePowerUps.js';
 import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
+import { useAudio }       from './hooks/useAudio.js';
 
 import WalletConnect from './components/screens/WalletConnect.jsx';
 import SetUsername   from './components/screens/SetUsername.jsx';
@@ -60,6 +61,7 @@ export default function App() {
   } = useContract(walletClient, address);
 
   const { toast, showToast } = useToast();
+  const audio = useAudio();
 
   const handleScorePts = useCallback((pts) => {
     setScore((prev) => prev + pts);
@@ -73,13 +75,13 @@ export default function App() {
   }, []);
 
   // useTimer must come before useGame so addTime is defined when passed in
-  const { remaining, startTimer, addTime, stopTimer } = useTimer(handleTimerExpire);
+  const { remaining, startTimer, addTime, stopTimer, pauseTimer, resumeTimer } = useTimer(handleTimerExpire);
 
   const {
-    canvasRef, nextIdx, gameOver, containerWidth,
+    canvasRef, nextIdx, nextNextIdx, gameOver, containerWidth,
     startEngine, dropFruit, movePointer, stopEngine,
-    activateBomb, expandContainer,
-  } = useGame(handleScorePts, showToast, addTime);
+    activateBomb, expandContainer, triggerTimeFX,
+  } = useGame(handleScorePts, showToast, addTime, audio);
 
   const {
     entries: leaderboard,
@@ -209,31 +211,32 @@ export default function App() {
   const handlePurchase = useCallback(async (pkgIdx) => {
     try {
       const secs = await purchase(pkgIdx);
-      showToast(`+${secs}s ⏱`);
+      showToast(`+${secs}s`);
+      triggerTimeFX(`+${secs}s`);
     } catch (err) {
       if (isUserRejection(err)) return; // stay on game board
       showToast(err.message || 'Purchase failed');
     }
-  }, [purchase, showToast]);
+  }, [purchase, showToast, triggerTimeFX]);
 
   const handleUseBomb = useCallback(() => {
     const consumed = consumeBomb();
     if (!consumed) return;
     const removed = activateBomb();
-    if (removed) showToast('💣 Boom!');
+    if (removed) showToast('Detonated! +200');
   }, [consumeBomb, activateBomb, showToast]);
 
   const handleUseExpand = useCallback(() => {
     const consumed = consumeExpand();
     if (!consumed) return;
     expandContainer();
-    showToast('📦 Bucket expanded!');
+    showToast('Vacuum widened!');
   }, [consumeExpand, expandContainer, showToast]);
 
   const handlePurchasePowerUp = useCallback(async (pkgIdx) => {
     try {
       const qty = await buyPowerUp(shop, pkgIdx);
-      showToast(`+${qty} ${shop === 'bomb' ? '💣' : '📦'} added!`);
+      showToast(`+${qty} ${shop === 'bomb' ? 'bomb' : 'expand'}${qty > 1 ? 's' : ''} added`);
       setShop(null);
     } catch (err) {
       if (isUserRejection(err)) { setShop(null); return; } // stay on game board
@@ -280,6 +283,7 @@ export default function App() {
         <Playing
           canvasRef={canvasRef}
           nextIdx={nextIdx}
+          nextNextIdx={nextNextIdx}
           sessionStatus={sessionStatus}
           score={score}
           personalBest={profile?.personalBest ?? 0}
@@ -304,6 +308,8 @@ export default function App() {
           powerUpToken={powerUpToken}
           onSelectPowerUpToken={setPowerUpToken}
           onPurchasePowerUp={handlePurchasePowerUp}
+          pauseTimer={pauseTimer}
+          resumeTimer={resumeTimer}
           toast={toast}
           movePointer={movePointer}
           dropFruit={dropFruit}

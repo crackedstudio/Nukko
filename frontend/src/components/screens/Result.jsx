@@ -5,24 +5,45 @@ import Leaderboard      from '../ui/Leaderboard.jsx';
 import { PLANET_DATA }  from '../ui/Planet.jsx';
 
 function Confetti() {
-  const items = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
-    x: 10 + Math.random() * 80,
-    color: ['#ffd700', '#7b2fff', '#00d4ff', '#ff6b8a'][i % 4],
-    delay: Math.random() * 0.4,
-    dur: 2.5 + Math.random() * 1.5,
-    size: 4 + Math.random() * 4,
+  const items = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
+    x: 5 + Math.random() * 90,
+    color: ['#ffd700', '#7b2fff', '#00d4ff', '#ff6b8a', '#a78bff'][i % 5],
+    delay: Math.random() * 0.5,
+    dur: 2.8 + Math.random() * 1.5,
+    size: 4 + Math.random() * 5,
+    rot: Math.random() * 720,
   })), []);
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
       {items.map((it, i) => (
         <div key={i} style={{
           position: 'absolute', left: `${it.x}%`, top: '-20px',
-          width: it.size, height: it.size, borderRadius: 1,
+          width: it.size, height: it.size, borderRadius: i % 3 === 0 ? '50%' : 2,
           background: it.color,
           animation: `nukko-confetti ${it.dur}s ease-in ${it.delay}s forwards`,
         }} />
       ))}
     </div>
+  );
+}
+
+function StarIcon({ size = 12, color = '#ffd700' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="none">
+      <path d="M6 1l1.12 3.09H10.5L7.84 6.2l1.07 3.09L6 7.56l-2.91 1.73L4.16 6.2 1.5 4.09h3.38L6 1z"
+        fill={color} />
+    </svg>
+  );
+}
+
+function ShareIcon({ size = 18, color = '#fff' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <circle cx="14" cy="4" r="2" stroke={color} strokeWidth="1.4" />
+      <circle cx="4"  cy="9" r="2" stroke={color} strokeWidth="1.4" />
+      <circle cx="14" cy="14" r="2" stroke={color} strokeWidth="1.4" />
+      <path d="M6 10.3l6 2.4M12 5.3L6 7.7" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -35,6 +56,15 @@ function stageFromScore(score) {
   if (score < 20000) return 11;
   if (score < 50000) return 12;
   return 13;
+}
+
+function handleShare(score, rank) {
+  const text = `I scored ${score.toLocaleString()} in NUKKO${rank ? ` and ranked #${rank}` : ''}! Drop. Merge. Evolve. 🌌`;
+  if (navigator.share) {
+    navigator.share({ title: 'Nukko', text }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
 }
 
 export default function Result({
@@ -56,19 +86,22 @@ export default function Result({
 
         <div style={{
           height: '100%', display: 'flex', flexDirection: 'column',
-          padding: '32px 20px 20px', boxSizing: 'border-box', overflow: 'auto',
+          padding: '28px 18px 18px', boxSizing: 'border-box', overflowY: 'auto',
         }}>
-          {/* Score headline */}
-          <div style={{ textAlign: 'center' }}>
+
+          {/* ── Score headline ───────────────────────────────────────────── */}
+          <div style={{ textAlign: 'center', animation: 'nukko-score-pop 0.5s ease-out' }}>
             <div style={{
-              fontFamily: '"Nunito", system-ui', fontSize: 12, letterSpacing: '0.2em',
-              color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase',
-            }}>Your Score</div>
+              fontFamily: '"Nunito", system-ui', fontSize: 11, letterSpacing: '0.22em',
+              color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase',
+            }}>
+              Final Score
+            </div>
 
             <div style={{
-              marginTop: 6, fontFamily: '"Space Mono", monospace',
-              fontWeight: 700, fontSize: 56, lineHeight: 1,
-              background: 'linear-gradient(135deg, #fff, #ffd700 60%, #ff6b8a)',
+              marginTop: 4, fontFamily: '"Space Mono", monospace',
+              fontWeight: 700, fontSize: 52, lineHeight: 1,
+              background: 'linear-gradient(135deg, #fff 10%, #ffd700 55%, #ff6b8a 90%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               backgroundClip: 'text', letterSpacing: '-0.03em',
               fontVariantNumeric: 'tabular-nums',
@@ -78,71 +111,85 @@ export default function Result({
 
             {isNewRecord && (
               <div style={{
-                display: 'inline-flex', marginTop: 10, alignItems: 'center', gap: 6,
+                display: 'inline-flex', marginTop: 10, alignItems: 'center', gap: 5,
                 padding: '6px 14px', borderRadius: 99,
-                background: 'linear-gradient(90deg, rgba(255,215,0,0.25), rgba(255,107,138,0.25))',
+                background: 'linear-gradient(90deg, rgba(255,215,0,0.2), rgba(167,139,255,0.2))',
                 border: '1px solid rgba(255,215,0,0.4)',
-                fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 13, color: '#ffd700',
+                fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 13, color: '#ffd700',
               }}>
-                ✦ New Personal Best!
+                <StarIcon size={12} color="#ffd700" />
+                New Personal Best!
               </div>
             )}
 
             {rank && (
               <div style={{
-                marginTop: 14, fontFamily: '"Nunito", system-ui', fontSize: 14,
-                color: 'rgba(255,255,255,0.7)',
+                marginTop: 10, fontFamily: '"Nunito", system-ui', fontSize: 13,
+                color: 'rgba(255,255,255,0.6)',
               }}>
-                You ranked{' '}
-                <span style={{ color: '#fff', fontWeight: 800 }}>#{rank}</span>
+                Ranked{' '}
+                <span style={{ color: '#ffd700', fontWeight: 800 }}>#{rank}</span>
                 {' '}in the cosmos
               </div>
             )}
           </div>
 
-          {/* Highest planet card */}
+          {/* ── Planet reached card ─────────────────────────────────────── */}
           <div style={{
-            marginTop: 20, borderRadius: 20, padding: '18px 16px',
+            marginTop: 18, borderRadius: 18, padding: '16px',
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex', alignItems: 'center', gap: 16,
+            display: 'flex', alignItems: 'center', gap: 14,
           }}>
-            <div style={{
-              width: 72, height: 72, display: 'flex',
-              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <Planet stage={highestStage} size={60} glow />
-            </div>
+            <Planet stage={highestStage} size={52} glow />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontFamily: '"Nunito", system-ui', fontSize: 11,
-                color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.15em',
-              }}>You reached</div>
+                fontFamily: '"Nunito", system-ui', fontSize: 10,
+                color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.15em',
+              }}>
+                You reached
+              </div>
               <div style={{
-                marginTop: 2, fontFamily: '"Fredoka", "Nunito", sans-serif',
-                fontWeight: 600, fontSize: 22, color: '#fff',
-              }}>{planet.name}</div>
+                marginTop: 2, fontFamily: '"Nunito", system-ui',
+                fontWeight: 800, fontSize: 20, color: '#fff',
+              }}>
+                {planet?.name ?? `Stage ${highestStage}`}
+              </div>
               <div style={{
-                marginTop: 4, fontFamily: '"Nunito", system-ui', fontSize: 12,
-                color: 'rgba(255,255,255,0.5)',
-              }}>Stage {highestStage} of 14</div>
+                marginTop: 2, fontFamily: '"Nunito", system-ui', fontSize: 11,
+                color: 'rgba(255,255,255,0.4)',
+              }}>
+                Stage {highestStage} of 14
+              </div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{
-                fontFamily: '"Space Mono", monospace', fontWeight: 700,
-                fontSize: 18, color: 'rgba(255,255,255,0.5)',
-                fontVariantNumeric: 'tabular-nums',
-              }}>{Number(personalBest).toLocaleString()}</div>
-              <div style={{
-                fontFamily: '"Nunito", system-ui', fontSize: 11,
-                color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em',
-              }}>Best</div>
-            </div>
+            {personalBest > 0 && (
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{
+                  fontFamily: '"Space Mono", monospace', fontWeight: 700,
+                  fontSize: 16, color: 'rgba(255,255,255,0.5)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {Number(personalBest).toLocaleString()}
+                </div>
+                <div style={{
+                  fontFamily: '"Nunito", system-ui', fontSize: 10,
+                  color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em',
+                }}>
+                  Best
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Mini leaderboard */}
+          {/* ── Mini leaderboard ────────────────────────────────────────── */}
           {leaderboard.length > 0 && (
             <div style={{ marginTop: 16 }}>
+              <div style={{
+                marginBottom: 8, fontFamily: '"Nunito", system-ui', fontSize: 13,
+                fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+              }}>
+                Top Scores
+              </div>
               <Leaderboard
                 entries={leaderboard.slice(0, 5)}
                 loading={leaderboardLoading}
@@ -152,19 +199,40 @@ export default function Result({
 
           <div style={{ flex: 1, minHeight: 16 }} />
 
-          {/* Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
-            <button onClick={onPlayAgain} style={{
-              width: '100%', height: 56, borderRadius: 16,
-              background: 'linear-gradient(135deg, #7b2fff 0%, #00d4ff 100%)',
-              border: 'none', color: '#fff',
-              fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 17,
-              cursor: 'pointer',
-              boxShadow: '0 10px 30px -8px rgba(123,47,255,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
-            }}>
+          {/* ── Actions ─────────────────────────────────────────────────── */}
+          <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
+            {/* Share */}
+            <button
+              onClick={() => handleShare(score, rank)}
+              style={{
+                height: 56, paddingInline: 18, borderRadius: 16, flexShrink: 0,
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: '#fff', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 13,
+              }}
+            >
+              <ShareIcon size={18} />
+              Share
+            </button>
+
+            {/* Play again */}
+            <button
+              onClick={onPlayAgain}
+              style={{
+                flex: 1, height: 56, borderRadius: 16,
+                background: 'linear-gradient(135deg, #7b2fff 0%, #00d4ff 100%)',
+                border: 'none', color: '#fff',
+                fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 17,
+                cursor: 'pointer',
+                boxShadow: '0 10px 30px -8px rgba(123,47,255,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
+              }}
+            >
               Play Again
             </button>
           </div>
+
         </div>
       </CosmicBackground>
     </div>

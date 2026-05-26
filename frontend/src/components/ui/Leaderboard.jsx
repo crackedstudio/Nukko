@@ -1,9 +1,14 @@
 import Planet from './Planet.jsx';
 
-const MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+// Gold / silver-blue / bronze — avoids colour-emoji, stays in the cosmic palette
+const RANK_COLORS = {
+  1: '#ffd700',
+  2: '#a8c4d8',
+  3: '#c87941',
+};
 
 function LeaderboardRow({ entry, divider, isMe }) {
-  const medal = MEDALS[entry.rank];
+  const rankColor = isMe ? '#ffd700' : (RANK_COLORS[entry.rank] ?? 'rgba(255,255,255,0.7)');
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
@@ -22,14 +27,27 @@ function LeaderboardRow({ entry, divider, isMe }) {
         }} />
       )}
 
-      {/* Rank */}
+      {/* Rank — top-3 get a coloured filled pill, rest are plain numbers */}
       <div style={{
         width: 28, textAlign: 'center', flexShrink: 0,
-        fontFamily: medal ? 'system-ui' : '"Space Mono", monospace',
-        fontSize: medal ? 18 : 13, fontWeight: 700,
-        color: isMe ? '#ffd700' : 'rgba(255,255,255,0.7)',
+        fontFamily: '"Space Mono", monospace',
+        fontSize: entry.rank <= 3 ? 12 : 13,
+        fontWeight: 700,
+        color: rankColor,
       }}>
-        {medal ?? entry.rank}
+        {entry.rank <= 3 ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: '50%',
+            background: `${rankColor}1a`,
+            border: `1px solid ${rankColor}55`,
+            fontSize: 11,
+          }}>
+            {entry.rank}
+          </span>
+        ) : (
+          entry.rank
+        )}
       </div>
 
       {/* Planet avatar */}
@@ -87,7 +105,7 @@ export default function Leaderboard({ entries, loading, myUsername }) {
         fontFamily: '"Nunito", system-ui', fontSize: 13,
         color: 'rgba(255,255,255,0.4)',
       }}>
-        No scores yet — be the first! 🪐
+        No scores yet — be the first.
       </div>
     );
   }

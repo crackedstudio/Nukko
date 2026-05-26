@@ -1,8 +1,9 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { RecordIcon } from '../ui/Icons.jsx';
 import CosmicBackground from '../ui/CosmicBackground.jsx';
-import TimerPackages    from '../ui/TimerPackages.jsx';
-import PowerUpBar       from '../ui/PowerUpBar.jsx';
+import BottomBar        from '../ui/BottomBar.jsx';
 import PowerUpShop      from '../ui/PowerUpShop.jsx';
+import TimeShop         from '../ui/TimeShop.jsx';
 import Toast            from '../ui/Toast.jsx';
 import { FRUITS, drawFruitOnCtx } from '../../game/fruits.js';
 
@@ -22,12 +23,13 @@ function fmt(s) {
 export default function Playing({
   canvasRef,
   nextIdx,
+  nextNextIdx,
   sessionStatus,
   score,
   personalBest,
   remaining,
   containerWidth,
-  // time packages
+  // time packages (now shown in TimeShop modal)
   packages,
   onPurchase,
   purchaseLoading,
@@ -48,12 +50,23 @@ export default function Playing({
   powerUpToken,
   onSelectPowerUpToken,
   onPurchasePowerUp,
+  // timer
+  pauseTimer,
+  resumeTimer,
   // game
   toast,
   movePointer,
   dropFruit,
   gameOver,
 }) {
+  const [timeShopOpen, setTimeShopOpen] = useState(false);
+
+  // Pause the countdown whenever any modal is visible
+  const anyModalOpen = !!shop || timeShopOpen;
+  useEffect(() => {
+    if (anyModalOpen) pauseTimer?.();
+    else              resumeTimer?.();
+  }, [anyModalOpen, pauseTimer, resumeTimer]);
   const pointerActiveRef = useRef(false);
   // Tracks pointer position for keyboard control (arrow keys + space)
   const kbXRef = useRef((containerWidth ?? 320) / 2);
@@ -69,6 +82,18 @@ export default function Playing({
     const r = Math.min(FRUITS[nextIdx].r, 20);
     drawFruitOnCtx(ctx, 28, 28, r, nextIdx, 1);
   }, [nextIdx]);
+
+  // Draw the "after next" smaller preview
+  useEffect(() => {
+    const canvas = document.getElementById('nextnext-canvas');
+    if (!canvas || nextNextIdx == null) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 36, 36);
+    ctx.fillStyle = '#050009';
+    ctx.fillRect(0, 0, 36, 36);
+    const r = Math.min(FRUITS[nextNextIdx].r, 13);
+    drawFruitOnCtx(ctx, 18, 18, r, nextNextIdx, 0.8);
+  }, [nextNextIdx]);
 
   const getX = useCallback((e) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -177,12 +202,31 @@ export default function Playing({
                   fontFamily: '"Nunito", system-ui', fontSize: 9,
                   color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.15em',
                 }}>Next</div>
-                <div style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 10, padding: 4,
-                }}>
-                  <canvas id="next-canvas" width={56} height={56} style={{ display: 'block', borderRadius: 6 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10, padding: 4,
+                  }}>
+                    <canvas id="next-canvas" width={56} height={56} style={{ display: 'block', borderRadius: 6 }} />
+                  </div>
+                  {nextNextIdx != null && (
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    }}>
+                      <div style={{
+                        fontFamily: '"Nunito", system-ui', fontSize: 7,
+                        color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em',
+                      }}>After</div>
+                      <div style={{
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: 8, padding: 3,
+                      }}>
+                        <canvas id="nextnext-canvas" width={36} height={36} style={{ display: 'block', borderRadius: 5, opacity: 0.7 }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -208,7 +252,7 @@ export default function Playing({
                     transition: 'color 0.4s ease',
                   }}>
                     PB {Number(personalBest).toLocaleString()}
-                    {score > personalBest && ' 🔥'}
+                    {score > personalBest && <RecordIcon size={10} color="#00d4ff" />}
                   </div>
                 )}
               </div>
@@ -248,37 +292,15 @@ export default function Playing({
             </div>
           </div>
 
-          {/* Power-up bar */}
-          {(totalBombs !== undefined || totalExpands !== undefined) && (
-            <div style={{ paddingTop: 8 }}>
-              <PowerUpBar
-                totalBombs={totalBombs}
-                totalExpands={totalExpands}
-                onUseBomb={onUseBomb}
-                onUseExpand={onUseExpand}
-                onBuyBombs={onBuyBombs}
-                onBuyExpands={onBuyExpands}
-                disabled={powerUpLoading || gameOver}
-              />
-            </div>
-          )}
-
-          {/* Bottom — time boosts */}
-          <div style={{ paddingTop: 8 }}>
-            <div style={{
-              fontFamily: '"Nunito", system-ui', fontSize: 10,
-              color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase',
-              letterSpacing: '0.2em', textAlign: 'center', marginBottom: 8,
-            }}>
-              Need more time?
-            </div>
-            <TimerPackages
-              packages={packages}
-              onPurchase={onPurchase}
-              loading={purchaseLoading}
-              selectedToken={selectedToken}
-              onSelectToken={onSelectToken}
-              balances={balances}
+          {/* Unified bottom action bar */}
+          <div style={{ paddingTop: 10 }}>
+            <BottomBar
+              totalBombs={totalBombs}
+              totalExpands={totalExpands}
+              onBombTap={onBuyBombs}
+              onExpandTap={onBuyExpands}
+              onTimeTap={() => setTimeShopOpen(true)}
+              disabled={gameOver}
             />
           </div>
         </div>
@@ -294,6 +316,21 @@ export default function Playing({
           onPurchase={onPurchasePowerUp}
           loading={powerUpLoading}
           onClose={onCloseShop}
+          balances={balances}
+          count={shop === 'bomb' ? (totalBombs ?? 0) : (totalExpands ?? 0)}
+          onUse={shop === 'bomb' ? onUseBomb : onUseExpand}
+        />
+      )}
+
+      {/* Time shop modal */}
+      {timeShopOpen && (
+        <TimeShop
+          packages={packages}
+          selectedToken={selectedToken}
+          onSelectToken={onSelectToken}
+          onPurchase={(i) => { onPurchase(i); setTimeShopOpen(false); }}
+          loading={purchaseLoading}
+          onClose={() => setTimeShopOpen(false)}
           balances={balances}
         />
       )}

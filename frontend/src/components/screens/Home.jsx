@@ -1,4 +1,5 @@
 import CosmicBackground from '../ui/CosmicBackground.jsx';
+import NukkoWordmark    from '../ui/NukkoWordmark.jsx';
 import Planet           from '../ui/Planet.jsx';
 import Leaderboard      from '../ui/Leaderboard.jsx';
 
@@ -13,96 +14,127 @@ function stageFromScore(score) {
   return 13;
 }
 
+function StatPill({ label, value, accent }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+      padding: '10px 8px', borderRadius: 14,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+    }}>
+      <div style={{
+        fontFamily: '"Space Mono", monospace', fontWeight: 700,
+        fontSize: 18, color: accent ?? '#fff',
+        fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontFamily: '"Nunito", system-ui', fontSize: 9,
+        color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.12em',
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export default function Home({ profile, leaderboard, leaderboardLoading, onStartGame }) {
-  const username = profile?.username || 'Anonymous';
-  const best     = profile?.personalBest ?? 0;
-  const games    = profile?.gamesPlayed  ?? 0;
-  const stage    = stageFromScore(best);
-  const addr     = profile?.address ?? '';
-  const shortAddr = addr ? `${addr.slice(0, 6)}····` : '';
+  const username  = profile?.username || 'Anonymous';
+  const best      = profile?.personalBest ?? 0;
+  const games     = profile?.gamesPlayed  ?? 0;
+  const stage     = stageFromScore(best);
+  const addr      = profile?.address ?? '';
+  const shortAddr = addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#0a0015' }}>
       <CosmicBackground intensity="medium">
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
-          {/* Top chrome */}
+          {/* ── Header bar ─────────────────────────────────────────────── */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '18px 20px 8px',
+            padding: '20px 20px 0',
           }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'rgba(255,255,255,0.06)', padding: '6px 12px', borderRadius: 99,
-              fontFamily: '"Nunito", system-ui', fontSize: 13, color: '#fff',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}>
-              <div style={{ width: 6, height: 6, borderRadius: 99, background: '#00e676' }} />
-              {username}
-            </div>
-            <div style={{
-              fontFamily: '"Nunito", system-ui', fontSize: 11,
-              color: 'rgba(255,255,255,0.35)',
-            }}>
-              {shortAddr}
-            </div>
+            <NukkoWordmark size={28} />
+            {shortAddr && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                padding: '5px 10px', borderRadius: 99,
+                fontFamily: '"Space Mono", monospace', fontSize: 10,
+                color: 'rgba(255,255,255,0.5)',
+              }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
+                {shortAddr}
+              </div>
+            )}
           </div>
 
-          {/* Scrollable body */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '0 16px 16px' }}>
+          {/* ── Scrollable body ─────────────────────────────────────────── */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 8px' }}>
 
             {/* Player card */}
             <div style={{
-              borderRadius: 24, padding: '20px',
-              background: 'linear-gradient(140deg, rgba(123,47,255,0.35) 0%, rgba(0,212,255,0.18) 100%)',
+              borderRadius: 22, padding: '18px 18px 16px',
+              background: 'linear-gradient(145deg, rgba(123,47,255,0.32) 0%, rgba(0,212,255,0.14) 100%)',
               border: '1px solid rgba(255,255,255,0.12)',
-              display: 'flex', alignItems: 'center', gap: 16,
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14)',
             }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: 99, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-              }}>
-                <Planet stage={stage} size={48} glow />
+              {/* Avatar + name row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(0,0,0,0.25)',
+                  border: '1.5px solid rgba(255,255,255,0.14)',
+                }}>
+                  <Planet stage={stage} size={42} glow />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: '"Nunito", system-ui', fontWeight: 800,
+                    fontSize: 19, color: '#fff', lineHeight: 1.2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {username}
+                  </div>
+                  <div style={{
+                    marginTop: 2, fontFamily: '"Nunito", system-ui', fontSize: 12,
+                    color: 'rgba(255,255,255,0.45)',
+                  }}>
+                    {shortAddr}
+                  </div>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontFamily: '"Fredoka", "Nunito", sans-serif', fontWeight: 600,
-                  fontSize: 20, color: '#fff', lineHeight: 1.2,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{username}</div>
-                <div style={{
-                  marginTop: 4, fontFamily: '"Nunito", system-ui', fontSize: 12,
-                  color: 'rgba(255,255,255,0.55)',
-                }}>{shortAddr} · {games} games played</div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{
-                  fontFamily: '"Space Mono", monospace', fontWeight: 700,
-                  fontSize: 22, color: '#ffd700', letterSpacing: '-0.02em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>{best.toLocaleString()}</div>
-                <div style={{
-                  fontFamily: '"Nunito", system-ui', fontSize: 11,
-                  color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em',
-                }}>Best</div>
+
+              {/* Stats row */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <StatPill label="Best" value={best > 0 ? best.toLocaleString() : '–'} accent="#ffd700" />
+                <StatPill label="Games" value={games > 0 ? games.toLocaleString() : '0'} accent="#00d4ff" />
+                <StatPill label="Stage" value={`S${stage}`} accent="#a78bff" />
               </div>
             </div>
 
-            {/* Leaderboard heading */}
+            {/* Leaderboard */}
             <div style={{
-              marginTop: 24, marginBottom: 12,
+              marginTop: 20, marginBottom: 10,
               display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
             }}>
               <div style={{
-                fontFamily: '"Fredoka", "Nunito", sans-serif', fontWeight: 600,
-                fontSize: 18, color: '#fff',
-              }}>Cosmic Leaderboard</div>
+                fontFamily: '"Nunito", system-ui', fontWeight: 800,
+                fontSize: 15, color: '#fff', letterSpacing: '0.02em',
+              }}>
+                Cosmic Leaderboard
+              </div>
               <div style={{
-                fontFamily: '"Nunito", system-ui', fontSize: 11, color: 'rgba(255,255,255,0.4)',
-              }}>updates 30s</div>
+                fontFamily: '"Nunito", system-ui', fontSize: 11,
+                color: 'rgba(255,255,255,0.35)',
+              }}>
+                live · 30s
+              </div>
             </div>
 
             <Leaderboard
@@ -110,29 +142,41 @@ export default function Home({ profile, leaderboard, leaderboardLoading, onStart
               loading={leaderboardLoading}
               myUsername={username}
             />
+
+            {/* bottom spacer so content doesn't hide behind CTA */}
+            <div style={{ height: 100 }} />
           </div>
 
-          {/* Sticky bottom CTA */}
+          {/* ── Sticky bottom CTA ───────────────────────────────────────── */}
           <div style={{
-            padding: '12px 16px 20px',
-            background: 'linear-gradient(to top, rgba(10,0,21,0.95) 50%, rgba(10,0,21,0))',
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '12px 16px 28px',
+            background: 'linear-gradient(to top, #0a0015 60%, transparent)',
+            pointerEvents: 'none',
           }}>
-            <button onClick={onStartGame} style={{
-              width: '100%', height: 56, borderRadius: 16,
-              background: 'linear-gradient(135deg, #7b2fff 0%, #00d4ff 100%)',
-              border: 'none', color: '#fff',
-              fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 17,
-              cursor: 'pointer',
-              boxShadow: '0 10px 30px -8px rgba(123,47,255,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
-            }}>
-              Start Game
+            <button
+              onClick={onStartGame}
+              style={{
+                pointerEvents: 'all',
+                width: '100%', height: 58, borderRadius: 18,
+                background: 'linear-gradient(135deg, #7b2fff 0%, #00d4ff 100%)',
+                border: 'none', color: '#fff',
+                fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 18,
+                cursor: 'pointer',
+                boxShadow: '0 12px 36px -8px rgba(123,47,255,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
+                animation: 'nukko-glow-pulse 2.4s ease-in-out infinite',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Play Now
             </button>
             <div style={{
               textAlign: 'center', marginTop: 8,
-              fontFamily: '"Nunito", system-ui', fontSize: 12,
-              color: 'rgba(255,255,255,0.45)',
+              fontFamily: '"Nunito", system-ui', fontSize: 11,
+              color: 'rgba(255,255,255,0.38)',
+              pointerEvents: 'none',
             }}>
-              Free to play · 90 seconds · Unlimited games
+              Free · 90 seconds · Earn on Celo
             </div>
           </div>
 
