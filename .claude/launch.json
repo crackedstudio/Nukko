@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "nukko-frontend",
+      "name": "frontend",
       "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "cd /Users/0t41k1/Documents/Nukko/frontend && pnpm run dev"],
-      "port": 5175
+      "runtimeArgs": ["-c", "cd /Users/0t41k1/Documents/Nukko/frontend && npm run dev -- --host 0.0.0.0"],
+      "port": 5173
     }
   ]
 }
