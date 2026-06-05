@@ -669,21 +669,22 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     const sinceLastDrop = Date.now() - lastDropTimeRef.current;
     if (sinceLastDrop < 500) return; // short grace right after a drop
 
-    // Any fruit whose TOP is above the danger line counts — speed threshold
-    // is loose (< 2.0) because higher gravity keeps bodies subtly moving even
-    // when settled on a pile.
+    // Any fruit whose TOP is above the danger line counts — no speed gate,
+    // so fast-moving fruits that overflow the bucket also trigger game over.
+    // The 500ms post-drop grace above and the 600ms confirmation below prevent
+    // false triggers from fruits that briefly bounce up after being dropped.
     const inDanger = bodiesRef.current.some(
-      b => b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y && b.speed < 2.0,
+      b => b.position.y - FRUITS[b.fruitIdx].r < DANGER_Y,
     );
 
     if (inDanger) {
       if (gameOverPendingRef.current) return;
       gameOverPendingRef.current = true;
-      // Confirm after 600ms — body must still be in zone and mostly still
+      // Confirm after 600ms — fruit must still be above the line
       setTimeout(() => {
         if (gameOverRef.current) return;
         const still = bodiesRef.current.some(
-          b2 => b2.position.y - FRUITS[b2.fruitIdx].r < DANGER_Y && b2.speed < 3.0,
+          b2 => b2.position.y - FRUITS[b2.fruitIdx].r < DANGER_Y,
         );
         if (still) {
           gameOverRef.current = true;
