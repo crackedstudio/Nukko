@@ -12,13 +12,14 @@ import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
 import { useAudio }       from './hooks/useAudio.js';
 
-import WalletConnect from './components/screens/WalletConnect.jsx';
-import SetUsername   from './components/screens/SetUsername.jsx';
-import Home          from './components/screens/Home.jsx';
-import Starting      from './components/screens/Starting.jsx';
-import Playing       from './components/screens/Playing.jsx';
-import Submitting    from './components/screens/Submitting.jsx';
-import Result        from './components/screens/Result.jsx';
+import WalletConnect  from './components/screens/WalletConnect.jsx';
+import SetUsername    from './components/screens/SetUsername.jsx';
+import Home           from './components/screens/Home.jsx';
+import Starting       from './components/screens/Starting.jsx';
+import Playing        from './components/screens/Playing.jsx';
+import Submitting     from './components/screens/Submitting.jsx';
+import Result         from './components/screens/Result.jsx';
+import SplashScreen   from './components/screens/SplashScreen.jsx';
 import HowToPlay     from './components/ui/HowToPlay.jsx';
 import LowGasModal   from './components/ui/LowGasModal.jsx';
 import LegalModal    from './components/ui/LegalModal.jsx';
@@ -35,6 +36,7 @@ const S = {
 };
 
 export default function App() {
+  const [splashDone,  setSplashDone]  = useState(false);
   const [screen,      setScreen]      = useState(S.WALLET_CONNECT);
   const [profile,     setProfile]     = useState(null);
   const [score,       setScore]       = useState(0);
@@ -436,6 +438,10 @@ export default function App() {
           checking={gasChecking}
           onRecheck={recheckNow}
         />
+      )}
+      {/* Splash screen sits on top of everything, self-dismisses after ~3s */}
+      {!splashDone && (
+        <SplashScreen onDone={() => setSplashDone(true)} />
       )}
     </>
   );
