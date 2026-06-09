@@ -68,6 +68,8 @@ export default function Playing({
   onGoHome,
   muted,
   onToggleMute,
+  musicMuted,
+  onToggleMusic,
   toast,
   movePointer,
   dropFruit,
@@ -397,6 +399,8 @@ export default function Playing({
           onGoHome={() => { setPaused(false); onGoHome?.(); }}
           muted={muted}
           onToggleMute={onToggleMute}
+          musicMuted={musicMuted}
+          onToggleMusic={onToggleMusic}
         />
       )}
     </div>

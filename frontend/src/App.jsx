@@ -8,6 +8,7 @@ import { useLeaderboard } from './hooks/useLeaderboard.js';
 import { usePurchase }    from './hooks/usePurchase.js';
 import { usePowerUps }   from './hooks/usePowerUps.js';
 import { useGasCheck }    from './hooks/useGasCheck.js';
+import { useBgMusic }     from './hooks/useBgMusic.js';
 import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
 import { useAudio }       from './hooks/useAudio.js';
@@ -78,6 +79,7 @@ export default function App() {
   const { toast, showToast } = useToast();
   const audio = useAudio();
   const { muted, toggleMute } = audio;
+  const { musicMuted, toggleMusicMute, fadeOut: fadeMusicOut, fadeIn: fadeMusicIn } = useBgMusic();
 
   const handleScorePts = useCallback((pts) => {
     setScore((prev) => prev + pts);
@@ -155,8 +157,15 @@ export default function App() {
     stopTimer();
     setHasPausedGame(false);
     setFinalScore(scoreRef.current);
+    fadeMusicOut();
     setScreen(S.SUBMITTING);
-  }, [gameOver, stopTimer]);
+  }, [gameOver, stopTimer, fadeMusicOut]);
+
+  // ── Fade music back in when returning to HOME ──────────────────────────────
+
+  useEffect(() => {
+    if (screen === S.HOME) fadeMusicIn();
+  }, [screen, fadeMusicIn]);
 
   // ── Engine starts the moment the PLAYING screen mounts ────────────────────
   // startEngine() reads window.innerWidth automatically so the canvas fills
@@ -398,6 +407,8 @@ export default function App() {
           onGoHome={handleGoHome}
           muted={muted}
           onToggleMute={toggleMute}
+          musicMuted={musicMuted}
+          onToggleMusic={toggleMusicMute}
           toast={toast}
           movePointer={movePointer}
           dropFruit={dropFruit}
