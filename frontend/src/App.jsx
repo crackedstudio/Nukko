@@ -7,17 +7,24 @@ import { useGame }        from './hooks/useGame.js';
 import { useLeaderboard } from './hooks/useLeaderboard.js';
 import { usePurchase }    from './hooks/usePurchase.js';
 import { usePowerUps }   from './hooks/usePowerUps.js';
+import { useGasCheck }    from './hooks/useGasCheck.js';
+import { useBgMusic }     from './hooks/useBgMusic.js';
 import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
 import { useAudio }       from './hooks/useAudio.js';
 
-import WalletConnect from './components/screens/WalletConnect.jsx';
-import SetUsername   from './components/screens/SetUsername.jsx';
-import Home          from './components/screens/Home.jsx';
-import Starting      from './components/screens/Starting.jsx';
-import Playing       from './components/screens/Playing.jsx';
-import Submitting    from './components/screens/Submitting.jsx';
-import Result        from './components/screens/Result.jsx';
+import WalletConnect  from './components/screens/WalletConnect.jsx';
+import SetUsername    from './components/screens/SetUsername.jsx';
+import Home           from './components/screens/Home.jsx';
+import Starting       from './components/screens/Starting.jsx';
+import Playing        from './components/screens/Playing.jsx';
+import Submitting     from './components/screens/Submitting.jsx';
+import Result         from './components/screens/Result.jsx';
+import SplashScreen   from './components/screens/SplashScreen.jsx';
+import HowToPlay     from './components/ui/HowToPlay.jsx';
+import LowGasModal   from './components/ui/LowGasModal.jsx';
+import LegalModal    from './components/ui/LegalModal.jsx';
+import FAQModal      from './components/ui/FAQModal.jsx';
 
 const S = {
   WALLET_CONNECT: 'WALLET_CONNECT',
@@ -30,6 +37,7 @@ const S = {
 };
 
 export default function App() {
+  const [splashDone,  setSplashDone]  = useState(false);
   const [screen,      setScreen]      = useState(S.WALLET_CONNECT);
   const [profile,     setProfile]     = useState(null);
   const [score,       setScore]       = useState(0);
@@ -38,6 +46,12 @@ export default function App() {
   const [resultRank,  setResultRank]  = useState(null);
   const [shop,          setShop]          = useState(null); // 'bomb' | 'expand' | null
   const [sessionStatus, setSessionStatus] = useState('idle'); // 'idle'|'pending'|'confirmed'|'failed'
+  const [showTutorial,  setShowTutorial]  = useState(false);
+  const [hasPausedGame, setHasPausedGame] = useState(false);
+  // Ref so the PLAYING useEffect can skip startEngine when resuming a paused game
+  const isResumingRef = useRef(false);
+  const [legalModal,    setLegalModal]    = useState(null); // 'terms'|'privacy'|'about'|null
+  const [showFAQ,       setShowFAQ]       = useState(false);
 
   // Refs prevent stale closures in timer/game callbacks
   const screenRef  = useRef(screen);
@@ -49,7 +63,9 @@ export default function App() {
 
   // ── Hooks ──────────────────────────────────────────────────────────────────
 
-  const { address, walletClient, isMiniPay, connect, error: walletError } = useWallet();
+  const { address, walletClient, isMiniPay, connect, connectWithSocial, socialLoading, error: walletError } = useWallet();
+
+  const { hasGas, balanceDisplay, checking: gasChecking, recheckNow } = useGasCheck(address);
 
   const {
     startGame: startGameTx,
@@ -62,6 +78,8 @@ export default function App() {
 
   const { toast, showToast } = useToast();
   const audio = useAudio();
+  const { muted, toggleMute } = audio;
+  const { musicMuted, toggleMusicMute, fadeOut: fadeMusicOut, fadeIn: fadeMusicIn } = useBgMusic();
 
   const handleScorePts = useCallback((pts) => {
     setScore((prev) => prev + pts);
@@ -80,6 +98,7 @@ export default function App() {
   const {
     canvasRef, nextIdx, nextNextIdx, gameOver, containerWidth,
     startEngine, dropFruit, movePointer, stopEngine,
+    pauseEngine, resumeEngine,
     activateBomb, expandContainer, triggerTimeFX,
   } = useGame(handleScorePts, showToast, addTime, audio);
 
@@ -123,14 +142,30 @@ export default function App() {
       .catch(console.error);
   }, [address, getProfile]);
 
+  // ── Show how-to-play the first time the HOME screen appears ───────────────
+
+  useEffect(() => {
+    if (screen === S.HOME && !localStorage.getItem('nk_tutorial_seen')) {
+      setShowTutorial(true);
+    }
+  }, [screen]);
+
   // ── Physics game-over → SUBMITTING ─────────────────────────────────────────
 
   useEffect(() => {
     if (!gameOver || screenRef.current !== S.PLAYING) return;
     stopTimer();
+    setHasPausedGame(false);
     setFinalScore(scoreRef.current);
+    fadeMusicOut();
     setScreen(S.SUBMITTING);
-  }, [gameOver, stopTimer]);
+  }, [gameOver, stopTimer, fadeMusicOut]);
+
+  // ── Fade music back in when returning to HOME ──────────────────────────────
+
+  useEffect(() => {
+    if (screen === S.HOME) fadeMusicIn();
+  }, [screen, fadeMusicIn]);
 
   // ── Engine starts the moment the PLAYING screen mounts ────────────────────
   // startEngine() reads window.innerWidth automatically so the canvas fills
@@ -138,6 +173,13 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== S.PLAYING) return;
+    // If we're resuming a paused game, engine + timer are already running —
+    // just clear the flag and leave everything alone.
+    if (isResumingRef.current) {
+      isResumingRef.current = false;
+      return;
+    }
+    // Fresh start
     setScore(0);
     scoreRef.current = 0;
     startEngine();
@@ -185,7 +227,28 @@ export default function App() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  // Pause-to-home: keep the physics world + timer alive so game can be continued
+  const handleGoHome = useCallback(() => {
+    pauseEngine();
+    pauseTimer();
+    setHasPausedGame(true);
+    setScreen(S.HOME);
+  }, [pauseEngine, pauseTimer]);
+
+  // Continue a paused game: set the resuming flag, unblock the timer, switch screen.
+  // resumeEngine() is intentionally NOT called here — Playing's mount-effect calls it
+  // after the canvas element is in the DOM (avoids black screen from stale ctx).
+  const handleContinueGame = useCallback(() => {
+    isResumingRef.current = true;
+    resumeTimer();
+    setHasPausedGame(false);
+    setScreen(S.PLAYING);
+  }, [resumeTimer]);
+
   const handleStartGame = useCallback(async () => {
+    // Discard any paused game and start fresh
+    setHasPausedGame(false);
+    isResumingRef.current = false;
     setSessionStatus('pending');
     setScreen(S.PLAYING); // game starts immediately — tx fires concurrently
     try {
@@ -248,40 +311,67 @@ export default function App() {
 
   // ── Screen routing ──────────────────────────────────────────────────────────
 
+  // Low-gas modal overlays every post-connect screen.
+  // Dismissed automatically the moment the balance poll detects sufficient CELO.
+  const showGasModal = !!address && !hasGas && screen !== S.WALLET_CONNECT;
+
+  let currentScreen;
   switch (screen) {
     case S.WALLET_CONNECT:
-      return (
+      currentScreen = (
         <WalletConnect
           onConnect={connect}
+          onConnectSocial={connectWithSocial}
+          socialLoading={socialLoading}
           isMiniPay={isMiniPay}
           error={walletError}
         />
       );
+      break;
 
     case S.SET_USERNAME:
-      return (
+      currentScreen = (
         <SetUsername
           onSubmit={handleSetUsername}
           onSkip={() => setScreen(S.HOME)}
           checkUsernameAvailable={checkUsernameAvailable}
         />
       );
+      break;
 
     case S.HOME:
-      return (
-        <Home
-          profile={profile}
-          leaderboard={leaderboard}
-          leaderboardLoading={leaderboardLoading}
-          onStartGame={handleStartGame}
-        />
+      currentScreen = (
+        <>
+          <Home
+            profile={profile}
+            leaderboard={leaderboard}
+            leaderboardLoading={leaderboardLoading}
+            onStartGame={handleStartGame}
+            hasPausedGame={hasPausedGame}
+            pausedScore={score}
+            pausedRemaining={remaining}
+            onContinueGame={handleContinueGame}
+            onOpenLegal={setLegalModal}
+            onOpenFAQ={() => setShowFAQ(true)}
+          />
+          {showTutorial && (
+            <HowToPlay onDone={() => {
+              localStorage.setItem('nk_tutorial_seen', '1');
+              setShowTutorial(false);
+            }} />
+          )}
+          <LegalModal type={legalModal} onClose={() => setLegalModal(null)} />
+          <FAQModal isOpen={showFAQ} onClose={() => setShowFAQ(false)} />
+        </>
       );
+      break;
 
     case S.STARTING:
-      return <Starting />;
+      currentScreen = <Starting />;
+      break;
 
     case S.PLAYING:
-      return (
+      currentScreen = (
         <Playing
           canvasRef={canvasRef}
           nextIdx={nextIdx}
@@ -312,18 +402,27 @@ export default function App() {
           onPurchasePowerUp={handlePurchasePowerUp}
           pauseTimer={pauseTimer}
           resumeTimer={resumeTimer}
+          pauseEngine={pauseEngine}
+          resumeEngine={resumeEngine}
+          onGoHome={handleGoHome}
+          muted={muted}
+          onToggleMute={toggleMute}
+          musicMuted={musicMuted}
+          onToggleMusic={toggleMusicMute}
           toast={toast}
           movePointer={movePointer}
           dropFruit={dropFruit}
           gameOver={gameOver}
         />
       );
+      break;
 
     case S.SUBMITTING:
-      return <Submitting score={finalScore} />;
+      currentScreen = <Submitting score={finalScore} />;
+      break;
 
     case S.RESULT:
-      return (
+      currentScreen = (
         <Result
           score={finalScore}
           personalBest={profile?.personalBest ?? 0}
@@ -334,8 +433,27 @@ export default function App() {
           onPlayAgain={() => setScreen(S.HOME)}
         />
       );
+      break;
 
     default:
-      return null;
+      currentScreen = null;
   }
+
+  return (
+    <>
+      {currentScreen}
+      {showGasModal && (
+        <LowGasModal
+          address={address}
+          balanceDisplay={balanceDisplay}
+          checking={gasChecking}
+          onRecheck={recheckNow}
+        />
+      )}
+      {/* Splash screen sits on top of everything, self-dismisses after ~3s */}
+      {!splashDone && (
+        <SplashScreen onDone={() => setSplashDone(true)} />
+      )}
+    </>
+  );
 }

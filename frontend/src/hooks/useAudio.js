@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 let _ac = null;
 function getAC() {
@@ -6,6 +6,9 @@ function getAC() {
   if (_ac.state === 'suspended') _ac.resume().catch(() => {});
   return _ac;
 }
+
+// Module-level mute flag — persisted across renders, synced to localStorage
+let _muted = localStorage.getItem('nk_sfx_muted') === '1';
 
 function noise(ac, dur = 0.08) {
   const len  = Math.ceil(ac.sampleRate * dur);
@@ -32,8 +35,22 @@ function playOsc(ac, type, freq, gainPeak, attack, decay, detune = 0) {
 export function useAudio() {
   const dangerIntervalRef = useRef(null);
   const isDangerRef       = useRef(false);
+  const [muted, setMuted] = useState(_muted);
+
+  const toggleMute = useCallback(() => {
+    _muted = !_muted;
+    localStorage.setItem('nk_sfx_muted', _muted ? '1' : '0');
+    setMuted(_muted);
+    // If muting while danger is playing, stop the heartbeat immediately
+    if (_muted && dangerIntervalRef.current) {
+      clearInterval(dangerIntervalRef.current);
+      dangerIntervalRef.current = null;
+      isDangerRef.current = false;
+    }
+  }, []);
 
   const playDrop = useCallback(() => {
+    if (_muted) return;
     try {
       const ac  = getAC();
       const now = ac.currentTime;
@@ -63,6 +80,7 @@ export function useAudio() {
   }, []);
 
   const playMerge = useCallback((tier = 0) => {
+    if (_muted) return;
     // tier 0–13: pitch and volume scale up
     try {
       const ac   = getAC();
@@ -78,6 +96,7 @@ export function useAudio() {
   }, []);
 
   const playReady = useCallback(() => {
+    if (_muted) return;
     try {
       const ac  = getAC();
       playOsc(ac, 'sine', 880, 0.09, 0.005, 0.08);
@@ -86,6 +105,7 @@ export function useAudio() {
   }, []);
 
   const playBomb = useCallback(() => {
+    if (_muted) return;
     try {
       const ac  = getAC();
       const now = ac.currentTime;
@@ -115,6 +135,7 @@ export function useAudio() {
   }, []);
 
   const playExpand = useCallback(() => {
+    if (_muted) return;
     try {
       const ac  = getAC();
       const now = ac.currentTime;
@@ -135,6 +156,7 @@ export function useAudio() {
   }, []);
 
   const playTime = useCallback(() => {
+    if (_muted) return;
     try {
       const ac   = getAC();
       // Gentle ascending chime trio
@@ -149,6 +171,7 @@ export function useAudio() {
   }, []);
 
   const playGameOver = useCallback(() => {
+    if (_muted) return;
     try {
       const ac  = getAC();
       // Descending minor chord sting
@@ -163,7 +186,7 @@ export function useAudio() {
   }, []);
 
   const startDanger = useCallback(() => {
-    if (isDangerRef.current) return;
+    if (_muted || isDangerRef.current) return;
     isDangerRef.current = true;
     const beat = () => {
       try {
@@ -189,5 +212,5 @@ export function useAudio() {
     dangerIntervalRef.current = null;
   }, []);
 
-  return { playDrop, playMerge, playReady, playBomb, playExpand, playTime, playGameOver, startDanger, stopDanger };
+  return { playDrop, playMerge, playReady, playBomb, playExpand, playTime, playGameOver, startDanger, stopDanger, muted, toggleMute };
 }

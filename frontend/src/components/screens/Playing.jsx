@@ -5,7 +5,17 @@ import BottomBar        from '../ui/BottomBar.jsx';
 import PowerUpShop      from '../ui/PowerUpShop.jsx';
 import TimeShop         from '../ui/TimeShop.jsx';
 import Toast            from '../ui/Toast.jsx';
+import PauseModal       from '../ui/PauseModal.jsx';
 import { FRUITS, drawFruitOnCtx } from '../../game/fruits.js';
+
+function PauseButtonIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="2" y="1.5" width="3.5" height="11" rx="1" fill="rgba(255,255,255,0.8)"/>
+      <rect x="8.5" y="1.5" width="3.5" height="11" rx="1" fill="rgba(255,255,255,0.8)"/>
+    </svg>
+  );
+}
 
 // Must match the H constant in useGame.js
 const H_CANVAS = 480;
@@ -53,22 +63,49 @@ export default function Playing({
   onPurchasePowerUp,
   pauseTimer,
   resumeTimer,
+  pauseEngine,
+  resumeEngine,
+  onGoHome,
+  muted,
+  onToggleMute,
+  musicMuted,
+  onToggleMusic,
   toast,
   movePointer,
   dropFruit,
   gameOver,
 }) {
   const [timeShopOpen, setTimeShopOpen] = useState(false);
+  const [paused,       setPaused]       = useState(false);
 
-  const anyModalOpen = !!shop || timeShopOpen;
+  // Any modal (shop, time, pause) freezes the timer
+  const anyModalOpen = !!shop || timeShopOpen || paused;
   useEffect(() => {
     if (anyModalOpen) pauseTimer?.();
     else              resumeTimer?.();
   }, [anyModalOpen, pauseTimer, resumeTimer]);
 
+  // Pause also freezes the physics engine
+  useEffect(() => {
+    if (paused) pauseEngine?.();
+    else        resumeEngine?.();
+  }, [paused, pauseEngine, resumeEngine]);
+
+  const handlePause  = () => !gameOver && setPaused(true);
+  const handleResume = () => setPaused(false);
+
   const pointerActiveRef = useRef(false);
   const kbXRef           = useRef((containerWidth ?? 320) / 2);
   const canvasWrapperRef = useRef(null);
+
+  // On mount, attempt to resume a paused engine.
+  // For fresh game starts tickRef is still null so resumeEngine() is a no-op.
+  // For continue-from-home, this runs AFTER the canvas element is in the DOM,
+  // guaranteeing canvasRef.current is set before the first render tick.
+  useEffect(() => {
+    resumeEngine?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally mount-only
 
   // Draw "Next" preview
   useEffect(() => {
@@ -156,7 +193,26 @@ export default function Playing({
         }}>
 
           {/* ── Top HUD ─────────────────────────────────────────────────────── */}
-          <div style={{ padding: '14px 16px 10px', flexShrink: 0 }}>
+          <div style={{ padding: '14px 16px 10px', flexShrink: 0, position: 'relative' }}>
+
+            {/* Pause button — top-right corner of HUD */}
+            <button
+              onClick={handlePause}
+              disabled={gameOver}
+              style={{
+                position: 'absolute', top: 14, right: 16,
+                width: 32, height: 32, borderRadius: 10,
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: gameOver ? 'not-allowed' : 'pointer',
+                opacity: gameOver ? 0.35 : 1,
+                WebkitTapHighlightColor: 'transparent',
+                zIndex: 2,
+              }}
+            >
+              <PauseButtonIcon />
+            </button>
 
             {/* 3-column row: Timer | Next | Score */}
             <div style={{
@@ -164,6 +220,7 @@ export default function Playing({
               gridTemplateColumns: '1fr auto 1fr',
               alignItems: 'center',
               gap: 8,
+              paddingRight: 40,  /* leave room for pause button */
             }}>
 
               {/* Left: Timer pill */}
@@ -332,6 +389,18 @@ export default function Playing({
           loading={purchaseLoading}
           onClose={() => setTimeShopOpen(false)}
           balances={balances}
+        />
+      )}
+
+      {/* Pause modal */}
+      {paused && (
+        <PauseModal
+          onResume={handleResume}
+          onGoHome={() => { setPaused(false); onGoHome?.(); }}
+          muted={muted}
+          onToggleMute={onToggleMute}
+          musicMuted={musicMuted}
+          onToggleMusic={onToggleMusic}
         />
       )}
     </div>
