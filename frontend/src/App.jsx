@@ -344,6 +344,7 @@ export default function App() {
         <>
           <Home
             profile={profile}
+            address={address}
             leaderboard={leaderboard}
             leaderboardLoading={leaderboardLoading}
             onStartGame={handleStartGame}

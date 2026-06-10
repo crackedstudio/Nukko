@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import CosmicBackground from '../ui/CosmicBackground.jsx';
 import NukkoWordmark    from '../ui/NukkoWordmark.jsx';
 import Planet           from '../ui/Planet.jsx';
@@ -43,13 +44,27 @@ function fmt(s) {
   return [Math.floor(s / 60), s % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-export default function Home({ profile, leaderboard, leaderboardLoading, onStartGame, onOpenLegal, onOpenFAQ, hasPausedGame, pausedScore, pausedRemaining, onContinueGame }) {
+export default function Home({ profile, address: walletAddress, leaderboard, leaderboardLoading, onStartGame, onOpenLegal, onOpenFAQ, hasPausedGame, pausedScore, pausedRemaining, onContinueGame }) {
   const username  = profile?.username || 'Anonymous';
   const best      = profile?.personalBest ?? 0;
   const games     = profile?.gamesPlayed  ?? 0;
   const stage     = stageFromScore(best);
-  const addr      = profile?.address ?? '';
+  // Prefer direct wallet address over profile.address — profile may not include it
+  const addr      = walletAddress || profile?.address || '';
   const shortAddr = addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
+  const [copied, setCopied] = useState(false);
+
+  const copyAddress = () => {
+    if (!addr) return;
+    navigator.clipboard?.writeText(addr).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = addr; document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#0a0015' }}>
@@ -62,19 +77,6 @@ export default function Home({ profile, leaderboard, leaderboardLoading, onStart
             padding: '20px 20px 0',
           }}>
             <NukkoWordmark size={28} />
-            {shortAddr && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                padding: '5px 10px', borderRadius: 99,
-                fontFamily: '"Space Mono", monospace', fontSize: 10,
-                color: 'rgba(255,255,255,0.5)',
-              }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
-                {shortAddr}
-              </div>
-            )}
           </div>
 
           {/* ── Scrollable body ─────────────────────────────────────────── */}
@@ -104,12 +106,6 @@ export default function Home({ profile, leaderboard, leaderboardLoading, onStart
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {username}
-                  </div>
-                  <div style={{
-                    marginTop: 2, fontFamily: '"Nunito", system-ui', fontSize: 12,
-                    color: 'rgba(255,255,255,0.45)',
-                  }}>
-                    {shortAddr}
                   </div>
                 </div>
               </div>
