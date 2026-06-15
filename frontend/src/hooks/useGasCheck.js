@@ -8,14 +8,16 @@ const MIN_BALANCE = 5_000_000_000_000_000n; // 0.005 CELO in wei
 
 const POLL_INTERVAL = 5_000; // re-check every 5 s while modal is open
 
-export function useGasCheck(address) {
+// MiniPay pays gas via fee abstraction (USDT/USDC/USDm) — CELO is hidden from
+// users entirely. Never check or gate on CELO balance inside MiniPay.
+export function useGasCheck(address, miniPay = false) {
   const [hasGas,   setHasGas]   = useState(true);  // optimistic until first check
   const [balance,  setBalance]  = useState(null);   // BigInt | null
   const [checking, setChecking] = useState(false);
   const timerRef = useRef(null);
 
   const checkBalance = useCallback(async () => {
-    if (!address) return;
+    if (!address || miniPay) return;
     setChecking(true);
     try {
       const bal = await publicClient.getBalance({ address });
@@ -26,10 +28,11 @@ export function useGasCheck(address) {
     } finally {
       setChecking(false);
     }
-  }, [address]);
+  }, [address, miniPay]);
 
   useEffect(() => {
-    if (!address) return;
+    // MiniPay: fee abstraction handles gas — no CELO check needed
+    if (!address || miniPay) return;
 
     // Immediate first check
     checkBalance();
@@ -39,7 +42,7 @@ export function useGasCheck(address) {
     // clears the interval).
     timerRef.current = setInterval(checkBalance, POLL_INTERVAL);
     return () => clearInterval(timerRef.current);
-  }, [address, checkBalance]);
+  }, [address, miniPay, checkBalance]);
 
   // Once hasGas flips to true, stop polling
   useEffect(() => {

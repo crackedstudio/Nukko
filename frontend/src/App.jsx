@@ -65,7 +65,7 @@ export default function App() {
 
   const { address, walletClient, isMiniPay, connect, connectWithSocial, socialLoading, error: walletError } = useWallet();
 
-  const { hasGas, balanceDisplay, checking: gasChecking, recheckNow } = useGasCheck(address);
+  const { hasGas, balanceDisplay, checking: gasChecking, recheckNow } = useGasCheck(address, isMiniPay);
 
   const {
     startGame: startGameTx,
@@ -312,8 +312,8 @@ export default function App() {
   // ── Screen routing ──────────────────────────────────────────────────────────
 
   // Low-gas modal overlays every post-connect screen.
-  // Dismissed automatically the moment the balance poll detects sufficient CELO.
-  const showGasModal = !!address && !hasGas && screen !== S.WALLET_CONNECT;
+  // MiniPay uses fee abstraction — CELO is invisible to users and never required.
+  const showGasModal = !!address && !hasGas && !isMiniPay && screen !== S.WALLET_CONNECT;
 
   let currentScreen;
   switch (screen) {
