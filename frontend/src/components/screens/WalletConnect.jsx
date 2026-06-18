@@ -88,7 +88,7 @@ function LoadingDots() {
 
 // ── Main screen ────────────────────────────────────────────────────────────
 
-export default function WalletConnect({ onConnect, onConnectSocial, socialLoading, isMiniPay, error }) {
+export default function WalletConnect({ onConnect, onConnectSocial, socialLoading, isMiniPay, error, onPlayAsGuest }) {
   const [open,          setOpen]          = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
 
@@ -312,8 +312,27 @@ export default function WalletConnect({ onConnect, onConnectSocial, socialLoadin
               </div>
             )}
 
+            {/* Guest trial — web only */}
+            {!isMiniPay && onPlayAsGuest && (
+              <button
+                onClick={onPlayAsGuest}
+                disabled={anyLoading}
+                style={{
+                  width: '100%', marginTop: 16,
+                  background: 'none', border: 'none', padding: '6px 0',
+                  fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 13,
+                  color: anyLoading ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.38)',
+                  cursor: anyLoading ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.01em',
+                  transition: 'color 0.15s',
+                }}
+              >
+                Try it first — 25-second free trial →
+              </button>
+            )}
+
             <div style={{
-              textAlign: 'center', marginTop: 14,
+              textAlign: 'center', marginTop: 12,
               fontFamily: '"Nunito", system-ui', fontSize: 11,
               color: 'rgba(255,255,255,0.2)', letterSpacing: '0.05em',
             }}>

@@ -47,9 +47,14 @@ export default function App() {
   const [shop,          setShop]          = useState(null); // 'bomb' | 'expand' | null
   const [sessionStatus, setSessionStatus] = useState('idle'); // 'idle'|'pending'|'confirmed'|'failed'
   const [showTutorial,  setShowTutorial]  = useState(false);
-  const [hasPausedGame, setHasPausedGame] = useState(false);
+  const [hasPausedGame,     setHasPausedGame]     = useState(false);
+  const [isGuestMode,       setIsGuestMode]       = useState(false);
+  const [guestTrialExpired, setGuestTrialExpired] = useState(false);
   // Ref so the PLAYING useEffect can skip startEngine when resuming a paused game
   const isResumingRef = useRef(false);
+  // Ref version of isGuestMode — readable inside timer/game callbacks without stale closures
+  const isGuestRef = useRef(false);
+  useEffect(() => { isGuestRef.current = isGuestMode; }, [isGuestMode]);
   const [legalModal,    setLegalModal]    = useState(null); // 'terms'|'privacy'|'about'|null
   const [showFAQ,       setShowFAQ]       = useState(false);
 
@@ -87,6 +92,11 @@ export default function App() {
 
   const handleTimerExpire = useCallback(() => {
     if (screenRef.current === S.PLAYING) {
+      if (isGuestRef.current) {
+        // Guest trial ended — pause everything and show the connect prompt
+        setGuestTrialExpired(true);
+        return;
+      }
       setFinalScore(scoreRef.current);
       setScreen(S.SUBMITTING);
     }
@@ -133,6 +143,14 @@ export default function App() {
 
   useEffect(() => {
     if (!address) return;
+    // If wallet connects while a guest trial is running, stop the trial cleanly
+    if (isGuestRef.current) {
+      setIsGuestMode(false);
+      isGuestRef.current = false;
+      setGuestTrialExpired(false);
+      stopEngine();
+      stopTimer();
+    }
     getProfile(address)
       .then((p) => {
         setProfile(p);
@@ -140,7 +158,7 @@ export default function App() {
         setScreen(p.username ? S.HOME : S.SET_USERNAME);
       })
       .catch(console.error);
-  }, [address, getProfile]);
+  }, [address, getProfile, stopEngine, stopTimer]);
 
   // ── Show how-to-play the first time the HOME screen appears ───────────────
 
@@ -150,11 +168,23 @@ export default function App() {
     }
   }, [screen]);
 
-  // ── Physics game-over → SUBMITTING ─────────────────────────────────────────
+  // ── Guest trial expiry — pause engine + timer ─────────────────────────────
+
+  useEffect(() => {
+    if (!guestTrialExpired) return;
+    pauseEngine();
+    pauseTimer();
+  }, [guestTrialExpired, pauseEngine, pauseTimer]);
+
+  // ── Physics game-over → SUBMITTING (or guest connect prompt) ──────────────
 
   useEffect(() => {
     if (!gameOver || screenRef.current !== S.PLAYING) return;
     stopTimer();
+    if (isGuestRef.current) {
+      setGuestTrialExpired(true);
+      return;
+    }
     setHasPausedGame(false);
     setFinalScore(scoreRef.current);
     fadeMusicOut();
@@ -179,11 +209,11 @@ export default function App() {
       isResumingRef.current = false;
       return;
     }
-    // Fresh start
+    // Fresh start — guests get 25 s, ranked players get full 90 s
     setScore(0);
     scoreRef.current = 0;
     startEngine();
-    startTimer();
+    startTimer(isGuestRef.current ? 25 : undefined);
   }, [screen, startEngine, startTimer]);
 
   // ── Submit score when SUBMITTING screen appears ─────────────────────────────
@@ -227,13 +257,23 @@ export default function App() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  // Pause-to-home: keep the physics world + timer alive so game can be continued
+  // Pause-to-home: keep the physics world + timer alive so game can be continued.
+  // For guest mode, discard the trial and return to the connect screen.
   const handleGoHome = useCallback(() => {
     pauseEngine();
     pauseTimer();
+    if (isGuestRef.current) {
+      setIsGuestMode(false);
+      isGuestRef.current = false;
+      setGuestTrialExpired(false);
+      stopEngine();
+      stopTimer();
+      setScreen(S.WALLET_CONNECT);
+      return;
+    }
     setHasPausedGame(true);
     setScreen(S.HOME);
-  }, [pauseEngine, pauseTimer]);
+  }, [pauseEngine, pauseTimer, stopEngine, stopTimer]);
 
   // Continue a paused game: set the resuming flag, unblock the timer, switch screen.
   // resumeEngine() is intentionally NOT called here — Playing's mount-effect calls it
@@ -244,6 +284,26 @@ export default function App() {
     setHasPausedGame(false);
     setScreen(S.PLAYING);
   }, [resumeTimer]);
+
+  // Launch a no-wallet guest trial (web only, never MiniPay)
+  const handlePlayAsGuest = useCallback(() => {
+    setIsGuestMode(true);
+    isGuestRef.current = true;
+    setGuestTrialExpired(false);
+    setHasPausedGame(false);
+    isResumingRef.current = false;
+    setSessionStatus('idle');
+    setScreen(S.PLAYING);
+  }, []);
+
+  // Restart the 25-second trial from inside the expired-modal
+  const handleRetryGuest = useCallback(() => {
+    setGuestTrialExpired(false);
+    setScore(0);
+    scoreRef.current = 0;
+    startEngine();
+    startTimer(25);
+  }, [startEngine, startTimer]);
 
   const handleStartGame = useCallback(async () => {
     // Discard any paused game and start fresh
@@ -325,6 +385,7 @@ export default function App() {
           socialLoading={socialLoading}
           isMiniPay={isMiniPay}
           error={walletError}
+          onPlayAsGuest={isMiniPay ? undefined : handlePlayAsGuest}
         />
       );
       break;
@@ -414,6 +475,12 @@ export default function App() {
           movePointer={movePointer}
           dropFruit={dropFruit}
           gameOver={gameOver}
+          isGuestMode={isGuestMode}
+          guestTrialExpired={guestTrialExpired}
+          onConnectWallet={connect}
+          onConnectSocial={connectWithSocial}
+          socialLoading={socialLoading}
+          onRetryGuest={handleRetryGuest}
         />
       );
       break;

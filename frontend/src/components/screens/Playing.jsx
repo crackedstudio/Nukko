@@ -8,6 +8,183 @@ import Toast            from '../ui/Toast.jsx';
 import PauseModal       from '../ui/PauseModal.jsx';
 import { FRUITS, drawFruitOnCtx } from '../../game/fruits.js';
 
+// ── Guest trial expired modal ──────────────────────────────────────────────
+
+function GuestSpinner() {
+  return (
+    <div style={{
+      width: 16, height: 16, borderRadius: '50%',
+      border: '2px solid rgba(255,255,255,0.25)',
+      borderTopColor: '#fff',
+      animation: 'nukko-spin 0.65s linear infinite',
+      flexShrink: 0,
+    }} />
+  );
+}
+
+function GuestTrialExpiredModal({ score, onConnectSocial, onConnectWallet, socialLoading, onRetryGuest }) {
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  const handleConnectWallet = async () => {
+    setWalletLoading(true);
+    try { await onConnectWallet?.(); } finally { setWalletLoading(false); }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0 20px',
+      background: 'rgba(4,0,12,0.90)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
+      animation: 'nukko-fade-in 0.25s ease-out',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 340,
+        background: 'linear-gradient(160deg, #1a0930 0%, #0c0420 100%)',
+        border: '1px solid rgba(123,47,255,0.3)',
+        borderRadius: 28, overflow: 'hidden',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.75), 0 0 60px rgba(123,47,255,0.14)',
+        animation: 'nukko-score-pop 0.28s cubic-bezier(.22,1,.36,1)',
+      }}>
+        {/* Gradient top bar */}
+        <div style={{ height: 3, background: 'linear-gradient(90deg, #7b2fff, #00d4ff, #7b2fff)' }} />
+
+        <div style={{ padding: '28px 24px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: 18,
+            background: 'rgba(123,47,255,0.15)', border: '1px solid rgba(123,47,255,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 16,
+          }}>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <circle cx="13" cy="13" r="9.5" stroke="#a78bff" strokeWidth="1.5"/>
+              <path d="M13 9v5l3 3" stroke="#a78bff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          <div style={{
+            fontFamily: '"Nunito", system-ui', fontWeight: 900, fontSize: 22, color: '#fff',
+            marginBottom: 4,
+          }}>
+            Trial Complete!
+          </div>
+          <div style={{
+            fontFamily: '"Nunito", system-ui', fontSize: 13, color: 'rgba(255,255,255,0.42)',
+            marginBottom: 20, textAlign: 'center',
+          }}>
+            Your 25-second trial is up
+          </div>
+
+          {/* Score */}
+          <div style={{
+            fontFamily: '"Space Mono", monospace', fontWeight: 700,
+            fontSize: 52, color: '#ffd700', lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums', marginBottom: 4,
+          }}>
+            {Number(score).toLocaleString()}
+          </div>
+          <div style={{
+            fontFamily: '"Nunito", system-ui', fontSize: 10, fontWeight: 700,
+            color: 'rgba(255,215,0,0.4)', letterSpacing: '0.18em',
+            textTransform: 'uppercase', marginBottom: 24,
+          }}>
+            points scored
+          </div>
+
+          {/* Unlock callout */}
+          <div style={{
+            width: '100%', padding: '14px 16px', borderRadius: 16,
+            background: 'rgba(123,47,255,0.08)', border: '1px solid rgba(123,47,255,0.2)',
+            marginBottom: 24,
+          }}>
+            <div style={{
+              fontFamily: '"Nunito", system-ui', fontSize: 10, fontWeight: 800,
+              color: '#a78bff', textTransform: 'uppercase', letterSpacing: '0.14em',
+              marginBottom: 10,
+            }}>
+              Connect to unlock
+            </div>
+            {[
+              '🏆  Submit score to the global leaderboard',
+              '💎  Earn CELO rewards for every game',
+              '⚡  Bomb & Expand power-ups',
+            ].map(item => (
+              <div key={item} style={{
+                fontFamily: '"Nunito", system-ui', fontSize: 12,
+                color: 'rgba(255,255,255,0.58)', marginBottom: 7, lineHeight: 1.3,
+              }}>
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ padding: '0 24px 28px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Social login — primary */}
+          <button
+            onClick={onConnectSocial}
+            disabled={socialLoading || walletLoading}
+            style={{
+              width: '100%', height: 54, borderRadius: 16,
+              background: (socialLoading || walletLoading)
+                ? 'rgba(123,47,255,0.35)'
+                : 'linear-gradient(135deg, #7b2fff 0%, #00d4ff 100%)',
+              border: 'none', color: '#fff',
+              fontFamily: '"Nunito", system-ui', fontWeight: 800, fontSize: 16,
+              cursor: (socialLoading || walletLoading) ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              boxShadow: '0 8px 28px rgba(123,47,255,0.4)',
+            }}
+          >
+            {socialLoading ? <GuestSpinner /> : null}
+            {socialLoading ? 'Connecting…' : 'Sign Up Free'}
+          </button>
+
+          {/* Connect wallet — ghost */}
+          <button
+            onClick={handleConnectWallet}
+            disabled={socialLoading || walletLoading}
+            style={{
+              width: '100%', height: 46, borderRadius: 14,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.55)',
+              fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 14,
+              cursor: (socialLoading || walletLoading) ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            {walletLoading ? <GuestSpinner /> : null}
+            {walletLoading ? 'Connecting…' : 'Connect Wallet'}
+          </button>
+
+          {/* Try again — text link */}
+          <button
+            onClick={onRetryGuest}
+            disabled={socialLoading || walletLoading}
+            style={{
+              width: '100%', height: 36,
+              background: 'none', border: 'none',
+              color: (socialLoading || walletLoading) ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.28)',
+              fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 12,
+              cursor: (socialLoading || walletLoading) ? 'not-allowed' : 'pointer',
+              letterSpacing: '0.02em',
+            }}
+          >
+            Play Again (25-second trial)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 function PauseButtonIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -74,13 +251,19 @@ export default function Playing({
   movePointer,
   dropFruit,
   gameOver,
+  isGuestMode,
+  guestTrialExpired,
+  onConnectWallet,
+  onConnectSocial,
+  socialLoading,
+  onRetryGuest,
 }) {
   const [timeShopOpen,           setTimeShopOpen]           = useState(false);
   const [paused,                 setPaused]                 = useState(false);
   const [sessionFailDismissed,   setSessionFailDismissed]   = useState(false);
 
-  // Any modal (shop, time, pause) freezes the timer
-  const anyModalOpen = !!shop || timeShopOpen || paused;
+  // Any modal (shop, time, pause, or guest-expired overlay) freezes the timer
+  const anyModalOpen = !!shop || timeShopOpen || paused || (isGuestMode && guestTrialExpired);
   useEffect(() => {
     if (anyModalOpen) pauseTimer?.();
     else              resumeTimer?.();
@@ -346,21 +529,39 @@ export default function Playing({
           </div>
 
           {/* ── Bottom action bar ─────────────────────────────────────────── */}
-          <div style={{
-            flexShrink: 0,
-            borderTop: '1px solid rgba(0,212,255,0.18)',
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(8,1,15,0.92) 100%)',
-            padding: '10px 12px 22px',
-          }}>
-            <BottomBar
-              totalBombs={totalBombs}
-              totalExpands={totalExpands}
-              onBombTap={onBuyBombs}
-              onExpandTap={onBuyExpands}
-              onTimeTap={() => setTimeShopOpen(true)}
-              disabled={gameOver}
-            />
-          </div>
+          {isGuestMode ? (
+            /* Guest trial: no power-ups, show a connect nudge instead */
+            <div style={{
+              flexShrink: 0,
+              borderTop: '1px solid rgba(123,47,255,0.2)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(8,1,15,0.92) 100%)',
+              padding: '12px 16px 22px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{
+                fontFamily: '"Nunito", system-ui', fontSize: 12, fontWeight: 700,
+                color: 'rgba(255,255,255,0.28)', textAlign: 'center', lineHeight: 1.4,
+              }}>
+                Connect wallet to unlock power-ups &amp; earn CELO
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              flexShrink: 0,
+              borderTop: '1px solid rgba(0,212,255,0.18)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(8,1,15,0.92) 100%)',
+              padding: '10px 12px 22px',
+            }}>
+              <BottomBar
+                totalBombs={totalBombs}
+                totalExpands={totalExpands}
+                onBombTap={onBuyBombs}
+                onExpandTap={onBuyExpands}
+                onTimeTap={() => setTimeShopOpen(true)}
+                disabled={gameOver}
+              />
+            </div>
+          )}
         </div>
       </CosmicBackground>
 
@@ -402,6 +603,17 @@ export default function Playing({
           onToggleMute={onToggleMute}
           musicMuted={musicMuted}
           onToggleMusic={onToggleMusic}
+        />
+      )}
+
+      {/* Guest trial expired overlay */}
+      {isGuestMode && guestTrialExpired && (
+        <GuestTrialExpiredModal
+          score={score}
+          onConnectSocial={onConnectSocial}
+          onConnectWallet={onConnectWallet}
+          socialLoading={socialLoading}
+          onRetryGuest={onRetryGuest}
         />
       )}
 

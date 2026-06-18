@@ -22,11 +22,11 @@ export function useTimer(onExpire) {
     }
   }, []);
 
-  const startTimer = useCallback(() => {
+  const startTimer = useCallback((duration = BASE_SECONDS) => {
     clearInterval(intervalRef.current);
     pausedRemRef.current  = null;
-    endTimeRef.current    = Date.now() + BASE_SECONDS * 1000;
-    setRemaining(BASE_SECONDS);
+    endTimeRef.current    = Date.now() + duration * 1000;
+    setRemaining(duration);
     intervalRef.current   = setInterval(tick, 250);
   }, [tick]);
 
