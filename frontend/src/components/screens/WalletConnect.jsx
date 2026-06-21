@@ -88,9 +88,26 @@ function LoadingDots() {
 
 // ── Main screen ────────────────────────────────────────────────────────────
 
-export default function WalletConnect({ onConnect, onConnectSocial, socialLoading, isMiniPay, error, onPlayAsGuest }) {
+export default function WalletConnect({ address, onConnect, onConnectSocial, socialLoading, isMiniPay, error, onPlayAsGuest }) {
   const [open,          setOpen]          = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
+  const [copied,        setCopied]        = useState(false);
+
+  const shortAddr = address ? `${address.slice(0, 8)}…${address.slice(-6)}` : '';
+
+  const copyAddress = async () => {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = address; document.body.appendChild(el);
+      el.select(); document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleWallet = async () => {
     setOpen(false);

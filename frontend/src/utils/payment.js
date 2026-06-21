@@ -29,9 +29,9 @@ export async function sendPayment(walletClient, address, priceUSD, tokenKey, pre
   });
 
   if (isMiniPay()) {
-    await miniPaySend(token.address, data);
+    return miniPaySend(token.address, data);
   } else {
     if (!walletClient) throw new Error('Wallet not connected');
-    await walletClient.sendTransaction({ to: token.address, data });
+    return walletClient.sendTransaction({ to: token.address, data });
   }
 }

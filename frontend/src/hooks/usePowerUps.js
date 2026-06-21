@@ -2,27 +2,12 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { POWERUP_PACKAGES } from '../blockchain/tokens.js';
 import { sendPayment }       from '../utils/payment.js';
 import { useBalances }       from './useBalances.js';
+import { getInventory, updateInventory, recordPurchase } from '../supabase/db.js';
 
-const FREE_EACH = 3;
-
-function storageKey(address) {
-  return `nk_powerups_${address?.toLowerCase()}`;
-}
-
-function loadInv(address) {
-  try {
-    const raw = localStorage.getItem(storageKey(address));
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { freeBombsLeft: FREE_EACH, freeExpandsLeft: FREE_EACH, paidBombs: 0, paidExpands: 0 };
-}
-
-function saveInv(address, inv) {
-  try { localStorage.setItem(storageKey(address), JSON.stringify(inv)); } catch {}
-}
+const DEFAULT_INV = { free_bombs_left: 3, free_expands_left: 3, paid_bombs: 0, paid_expands: 0 };
 
 export function usePowerUps(walletClient, address) {
-  const [inv,           setInv]           = useState(() => loadInv(null));
+  const [inv,           setInv]           = useState(DEFAULT_INV);
   const [loading,       setLoading]       = useState(false);
   const [selectedToken, setSelectedToken] = useState('USDm');
 
@@ -32,37 +17,46 @@ export function usePowerUps(walletClient, address) {
 
   const { balances, richestToken, refresh: refreshBalances } = useBalances(address);
 
-  // Sync inventory from localStorage when address changes
+  // Load inventory from Supabase when address changes
   useEffect(() => {
     if (!address) return;
-    setInv(loadInv(address));
+    let cancelled = false;
+    getInventory(address)
+      .then(data => { if (!cancelled) setInv(data); })
+      .catch(err => console.error('Failed to load inventory:', err));
+    return () => { cancelled = true; };
   }, [address]);
 
-  // Auto-select the token the user holds the most of
   useEffect(() => { setSelectedToken(richestToken); }, [richestToken]);
 
-  const totalBombs   = inv.freeBombsLeft + inv.paidBombs;
-  const totalExpands = inv.freeExpandsLeft + inv.paidExpands;
+  const totalBombs   = inv.free_bombs_left + inv.paid_bombs;
+  const totalExpands = inv.free_expands_left + inv.paid_expands;
 
   const consumeBomb = useCallback(() => {
     if (!address || totalBombs <= 0) return false;
-    const next = { ...loadInv(address) };
-    if (next.freeBombsLeft > 0) next.freeBombsLeft--;
-    else next.paidBombs--;
-    saveInv(address, next);
+    const next = { ...inv };
+    if (next.free_bombs_left > 0) next.free_bombs_left--;
+    else next.paid_bombs--;
     setInv(next);
+    updateInventory(address, {
+      free_bombs_left: next.free_bombs_left,
+      paid_bombs:      next.paid_bombs,
+    }).catch(err => console.error('Failed to sync inventory:', err));
     return true;
-  }, [address, totalBombs]);
+  }, [address, totalBombs, inv]);
 
   const consumeExpand = useCallback(() => {
     if (!address || totalExpands <= 0) return false;
-    const next = { ...loadInv(address) };
-    if (next.freeExpandsLeft > 0) next.freeExpandsLeft--;
-    else next.paidExpands--;
-    saveInv(address, next);
+    const next = { ...inv };
+    if (next.free_expands_left > 0) next.free_expands_left--;
+    else next.paid_expands--;
     setInv(next);
+    updateInventory(address, {
+      free_expands_left: next.free_expands_left,
+      paid_expands:      next.paid_expands,
+    }).catch(err => console.error('Failed to sync inventory:', err));
     return true;
-  }, [address, totalExpands]);
+  }, [address, totalExpands, inv]);
 
   const buyPowerUp = useCallback(async (type, pkgIdx, tokenKey) => {
     if (!address || isPayingRef.current) return;
@@ -73,12 +67,28 @@ export function usePowerUps(walletClient, address) {
     const pkg = POWERUP_PACKAGES[pkgIdx];
 
     try {
-      await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
-      const next = { ...loadInv(address) };
-      if (type === 'bomb')   next.paidBombs   += pkg.qty;
-      if (type === 'expand') next.paidExpands += pkg.qty;
-      saveInv(address, next);
+      const txHash = await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
+
+      const next = { ...inv };
+      if (type === 'bomb')   next.paid_bombs   += pkg.qty;
+      if (type === 'expand') next.paid_expands += pkg.qty;
       setInv(next);
+
+      await Promise.all([
+        updateInventory(address, {
+          paid_bombs:   next.paid_bombs,
+          paid_expands: next.paid_expands,
+        }),
+        recordPurchase({
+          walletAddress: address,
+          txHash,
+          itemType:      type,
+          packageIndex:  pkgIdx,
+          token:         key,
+          amount:        pkg.priceUSD,
+        }),
+      ]);
+
       refreshBalances();
       return pkg.qty;
     } catch (err) {
@@ -88,13 +98,13 @@ export function usePowerUps(walletClient, address) {
       isPayingRef.current = false;
       setLoading(false);
     }
-  }, [address, selectedToken, balances, refreshBalances]);
+  }, [address, selectedToken, balances, refreshBalances, inv]);
 
   return {
     totalBombs,
     totalExpands,
-    freeBombsLeft:   inv.freeBombsLeft,
-    freeExpandsLeft: inv.freeExpandsLeft,
+    freeBombsLeft:   inv.free_bombs_left,
+    freeExpandsLeft: inv.free_expands_left,
     consumeBomb,
     consumeExpand,
     buyPowerUp,

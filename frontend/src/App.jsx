@@ -12,6 +12,7 @@ import { useBgMusic }     from './hooks/useBgMusic.js';
 import { isUserRejection } from './utils/miniPay.js';
 import { useToast }       from './components/ui/Toast.jsx';
 import { useAudio }       from './hooks/useAudio.js';
+import { getOrCreatePlayer, saveGameSession, addLeaderboardEntry, updatePlayerUsername } from './supabase/db.js';
 
 import WalletConnect  from './components/screens/WalletConnect.jsx';
 import SetUsername    from './components/screens/SetUsername.jsx';
@@ -54,6 +55,8 @@ export default function App() {
   const isResumingRef = useRef(false);
   // Ref version of isGuestMode — readable inside timer/game callbacks without stale closures
   const isGuestRef = useRef(false);
+  // Track game start time for session duration
+  const gameStartTimeRef = useRef(null);
   useEffect(() => { isGuestRef.current = isGuestMode; }, [isGuestMode]);
   const [legalModal,    setLegalModal]    = useState(null); // 'terms'|'privacy'|'about'|null
   const [showFAQ,       setShowFAQ]       = useState(false);
@@ -151,10 +154,14 @@ export default function App() {
       stopEngine();
       stopTimer();
     }
-    getProfile(address)
+    getOrCreatePlayer(address)
+      .then(() => getProfile(address))
       .then((p) => {
         setProfile(p);
-        if (p.username) localStorage.setItem('nk_username', p.username);
+        if (p.username) {
+          localStorage.setItem('nk_username', p.username);
+          updatePlayerUsername(address, p.username).catch(console.error);
+        }
         setScreen(p.username ? S.HOME : S.SET_USERNAME);
       })
       .catch(console.error);
@@ -212,6 +219,7 @@ export default function App() {
     // Fresh start — guests get 25 s, ranked players get full 90 s
     setScore(0);
     scoreRef.current = 0;
+    gameStartTimeRef.current = Date.now();
     startEngine();
     startTimer(isGuestRef.current ? 25 : undefined);
   }, [screen, startEngine, startTimer]);
@@ -226,6 +234,10 @@ export default function App() {
     // personalBest before this game — used to detect new record client-side
     const prevBest  = profileRef.current?.personalBest ?? 0;
 
+    const durationSeconds = gameStartTimeRef.current
+      ? Math.round((Date.now() - gameStartTimeRef.current) / 1000)
+      : null;
+
     (async () => {
       try {
         await submitScoreTx(submitted);
@@ -237,6 +249,20 @@ export default function App() {
         const newRecord = submitted > prevBest;
         setIsNewRecord(newRecord);
         setFinalScore(submitted);
+
+        // Save session + leaderboard entry to Supabase (non-blocking)
+        const username = profileRef.current?.username ?? null;
+        saveGameSession({
+          walletAddress:   address,
+          score:           submitted,
+          durationSeconds,
+        }).catch(err => console.error('saveGameSession failed:', err));
+
+        addLeaderboardEntry({
+          walletAddress: address,
+          username,
+          score:         submitted,
+        }).catch(err => console.error('addLeaderboardEntry failed:', err));
 
         // Refresh leaderboard then find player's rank
         await refreshLeaderboard();
@@ -328,6 +354,7 @@ export default function App() {
 
   const handleSetUsername = useCallback(async (username) => {
     await setUsernameTx(username);
+    updatePlayerUsername(address, username).catch(console.error);
     const updated = await getProfile(address);
     setProfile(updated);
     setScreen(S.HOME);
@@ -380,6 +407,7 @@ export default function App() {
     case S.WALLET_CONNECT:
       currentScreen = (
         <WalletConnect
+          address={address}
           onConnect={connect}
           onConnectSocial={connectWithSocial}
           socialLoading={socialLoading}

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { STABLECOINS, TIME_PACKAGES } from '../blockchain/tokens.js';
 import { sendPayment }                from '../utils/payment.js';
 import { useBalances }                from './useBalances.js';
+import { recordPurchase }             from '../supabase/db.js';
 
 export function usePurchase(walletClient, address, addTime) {
   const [loading,       setLoading]       = useState(false);
@@ -27,7 +28,17 @@ export function usePurchase(walletClient, address, addTime) {
     const pkg = TIME_PACKAGES[packageIndex];
 
     try {
-      await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
+      const txHash = await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
+
+      recordPurchase({
+        walletAddress: address,
+        txHash,
+        itemType:     'time',
+        packageIndex,
+        token:        key,
+        amount:       pkg.priceUSD,
+      }).catch(err => console.error('Failed to record purchase:', err));
+
       addTime(pkg.seconds);
       refreshBalances();
       return pkg.seconds;

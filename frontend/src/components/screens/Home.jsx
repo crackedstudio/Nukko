@@ -107,6 +107,37 @@ export default function Home({ profile, address: walletAddress, leaderboard, lea
                   }}>
                     {username}
                   </div>
+                  {shortAddr && (
+                    <button
+                      onClick={copyAddress}
+                      style={{
+                        marginTop: 4, padding: '3px 8px',
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${copied ? 'rgba(46,204,113,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                        cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        transition: 'border-color 0.2s',
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: '"Space Mono", monospace', fontSize: 11, fontWeight: 700,
+                        color: copied ? '#2ecc71' : 'rgba(255,255,255,0.5)',
+                      }}>
+                        {copied ? 'Copied!' : shortAddr}
+                      </span>
+                      <svg width="11" height="11" viewBox="0 0 15 15" fill="none">
+                        {copied ? (
+                          <polyline points="2,8 6,12 13,4" stroke="#2ecc71" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        ) : (
+                          <>
+                            <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4"/>
+                            <path d="M3 10V3a1 1 0 0 1 1-1h7" stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeLinecap="round"/>
+                          </>
+                        )}
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
 
