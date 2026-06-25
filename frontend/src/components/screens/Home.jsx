@@ -44,7 +44,7 @@ function fmt(s) {
   return [Math.floor(s / 60), s % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-export default function Home({ profile, address: walletAddress, leaderboard, leaderboardLoading, onStartGame, onOpenLegal, onOpenFAQ, hasPausedGame, pausedScore, pausedRemaining, onContinueGame }) {
+export default function Home({ profile, address: walletAddress, isMiniPay, leaderboard, leaderboardLoading, onStartGame, onOpenLegal, onOpenFAQ, hasPausedGame, pausedScore, pausedRemaining, onContinueGame }) {
   const username  = profile?.username || 'Anonymous';
   const best      = profile?.personalBest ?? 0;
   const games     = profile?.gamesPlayed  ?? 0;
@@ -107,7 +107,7 @@ export default function Home({ profile, address: walletAddress, leaderboard, lea
                   }}>
                     {username}
                   </div>
-                  {shortAddr && (
+                  {shortAddr && !isMiniPay && (
                     <button
                       onClick={copyAddress}
                       style={{

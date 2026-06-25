@@ -154,8 +154,8 @@ export default function App() {
       stopEngine();
       stopTimer();
     }
-    getOrCreatePlayer(address)
-      .then(() => getProfile(address))
+    getOrCreatePlayer(address).catch(console.error);
+    getProfile(address)
       .then((p) => {
         setProfile(p);
         if (p.username) {
@@ -434,6 +434,7 @@ export default function App() {
           <Home
             profile={profile}
             address={address}
+            isMiniPay={isMiniPay}
             leaderboard={leaderboard}
             leaderboardLoading={leaderboardLoading}
             onStartGame={handleStartGame}
