@@ -1,6 +1,6 @@
 {
-  "name": "Your App Name",
-  "short_name": "Your App",
+  "name": "Nukko",
+  "short_name": "Nukko",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +13,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#08010f",
+  "background_color": "#08010f",
   "display": "standalone"
 }

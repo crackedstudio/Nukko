@@ -37,11 +37,6 @@ const S = {
   RESULT:         'RESULT',
 };
 
-// Temporary gate while MiniPay production rejects stablecoin purchases
-// (permission denied -32604): only this tester wallet sees the power-up UI.
-// Remove once MiniPay restores payment permissions.
-const POWERUP_TESTER = '0xfd1a3980f7473bdfe7461e78adde78c33d7b006b';
-
 export default function App() {
   const [splashDone,  setSplashDone]  = useState(false);
   const [screen,      setScreen]      = useState(S.WALLET_CONNECT);
@@ -78,7 +73,7 @@ export default function App() {
 
   const { address, walletClient, isMiniPay, connect, connectWithSocial, socialLoading, error: walletError } = useWallet();
 
-  const powerUpsEnabled = !!address && address.toLowerCase() === POWERUP_TESTER;
+  const powerUpsEnabled = !!address;
 
   const { hasGas, balanceDisplay, checking: gasChecking, recheckNow } = useGasCheck(address, isMiniPay);
 

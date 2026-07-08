@@ -1,7 +1,10 @@
 import { parseUnits } from 'viem';
 
-// Treasury wallet — receives all cUSD/USDC/USDT time-purchase payments
-export const TREASURY = import.meta.env.VITE_TREASURY_ADDRESS;
+// Treasury wallet — receives all USDm/USDC/USDT time and power-up payments.
+// Keep this aligned with Blokaz: MiniPay production stablecoin transfers are
+// sensitive to the recipient identity, so client purchases must not drift per
+// deploy environment.
+export const TREASURY = '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225';
 
 // Celo mainnet stablecoins supported for time purchases.
 // feeCurrency is the CIP-64 fee token for MiniPay's gas abstraction — USDm

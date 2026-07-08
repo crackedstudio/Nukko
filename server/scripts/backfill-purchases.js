@@ -11,8 +11,8 @@ import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
 const TREASURIES = [
-  '0xAF3B714fDDa5A3b4311f78ccfe0873A990819A35', // current
-  '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225', // legacy (payments before Jul 2026)
+  '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225', // active MiniPay purchase recipient
+  '0xAF3B714fDDa5A3b4311f78ccfe0873A990819A35', // attempted July 2026 recipient
 ];
 
 // Celo mainnet stablecoins accepted for purchases (must match frontend tokens.js)
