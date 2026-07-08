@@ -15,9 +15,14 @@ export function useWallet() {
   const connect = useCallback(async () => {
     try {
       if (!window.ethereum) throw new Error('No wallet found. Open in MiniPay or install MetaMask.');
-      const accounts = await window.ethereum.request({
-        method: isMiniPay() ? 'eth_accounts' : 'eth_requestAccounts',
-      });
+      // Always eth_requestAccounts — including in MiniPay, where it is granted
+      // silently (no dialog) but establishes the session permission that the
+      // payment layer checks on stablecoin transfers. A silent eth_accounts
+      // read returns the address WITHOUT that grant, and purchases then fail
+      // with "Permission denied [-32604]" even though gameplay txs still pass.
+      // Blokaz gets this grant implicitly: wagmi's injected connector calls
+      // eth_requestAccounts on every connect.
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const addr = accounts[0];
       if (!addr) throw new Error('Wallet not connected');
       setAddress(addr);
@@ -65,9 +70,9 @@ export function useWallet() {
     }
   }, []);
 
-  // Auto-connect inside MiniPay — wallet is already injected.
-  // Match Blokaz: wait for MiniPay injection to settle and read accounts
-  // silently instead of requesting permissions with eth_requestAccounts.
+  // Auto-connect inside MiniPay — wallet is already injected. The 1s delay
+  // lets MiniPay finish injecting before we request the session grant
+  // (same settle delay Blokaz uses in MiniPayAutoConnect).
   useEffect(() => {
     if (!inMiniPay) return;
     const timer = setTimeout(connect, 1000);

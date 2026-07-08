@@ -69,7 +69,16 @@ export async function miniPaySend(to, data, gas = '0x493E0', feeCurrency) {
       params: [txParams],
     });
   } catch (err) {
-    if (err?.code !== 4100) throw err;
+    // MiniPay rejects payment sends from sessions without an explicit
+    // eth_requestAccounts grant: 4100 (EIP-1193 unauthorized) or -32604
+    // ("Permission denied"). Re-grant once and retry with identical params.
+    const msg = (err?.message || err?.data?.message || '').toLowerCase();
+    const permissionError =
+      err?.code === 4100 ||
+      err?.code === -32604 ||
+      msg.includes('permission') ||
+      msg.includes('unauthorized');
+    if (!permissionError) throw err;
 
     const granted = await window.ethereum.request({ method: 'eth_requestAccounts' });
     if (!granted?.[0]) throw err;
