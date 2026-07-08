@@ -31,7 +31,7 @@ export function useWallet() {
   // ── Connect via Web3Auth social login ─────────────────────────────────────
   // Web3Auth is dynamically imported so it is never bundled for MiniPay users.
   const connectWithSocial = useCallback(async () => {
-    // Guard: VITE_WEB3AUTH_CLIENT_ID must be set in .env / Netlify env vars
+    // Guard: VITE_WEB3AUTH_CLIENT_ID must be set in .env / Vercel env vars
     if (!import.meta.env.VITE_WEB3AUTH_CLIENT_ID) {
       setError('Social login is not configured yet. Add VITE_WEB3AUTH_CLIENT_ID to your environment.');
       return;
