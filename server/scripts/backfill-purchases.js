@@ -10,9 +10,12 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
+// Only the dedicated Nukko treasury is reconciled. The legacy recipient
+// (0x3E325B45F72dFCc3875f75b5933A5da183Ec4225) is shared with Blokaz, so its
+// transfers can't be attributed to Nukko — the brief Jul 8 window when Nukko
+// still paid into it is covered by client-side recording.
 const TREASURIES = [
-  '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225', // active MiniPay purchase recipient
-  '0xAF3B714fDDa5A3b4311f78ccfe0873A990819A35', // attempted July 2026 recipient
+  '0xAF3B714fDDa5A3b4311f78ccfe0873A990819A35',
 ];
 
 // Celo mainnet stablecoins accepted for purchases (must match frontend tokens.js)
@@ -37,6 +40,11 @@ function classify(amount) {
 const BLOCKSCOUT = 'https://celo.blockscout.com/api/v2';
 const dryRun = process.argv.includes('--dry-run');
 
+// The treasury is shared with Blokaz, so transfers before live client-side
+// recording began (Jul 8 2026) are a mix of both apps and must never be
+// imported as Nukko purchases — that history was purged on Jul 8.
+const SINCE = '2026-07-08T00:00:00Z';
+
 async function fetchTransfers(treasury) {
   const transfers = [];
   let params = '';
@@ -47,7 +55,9 @@ async function fetchTransfers(treasury) {
     if (!res.ok) throw new Error(`Blockscout ${res.status} for ${treasury}`);
     const body = await res.json();
 
+    let reachedCutoff = false;
     for (const item of body.items ?? []) {
+      if (item.timestamp < SINCE) { reachedCutoff = true; break; } // newest-first
       const token = STABLECOINS[item.token.address_hash.toLowerCase()];
       if (!token) continue; // ignore random/unsupported tokens
       const amount = (
@@ -62,7 +72,7 @@ async function fetchTransfers(treasury) {
       });
     }
 
-    if (!body.next_page_params) break;
+    if (reachedCutoff || !body.next_page_params) break;
     params = '&' + new URLSearchParams(body.next_page_params).toString();
   }
   return transfers;

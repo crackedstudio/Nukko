@@ -1,10 +1,9 @@
 import { parseUnits } from 'viem';
 
 // Treasury wallet — receives all USDm/USDC/USDT time and power-up payments.
-// Keep this aligned with Blokaz: MiniPay production stablecoin transfers are
-// sensitive to the recipient identity, so client purchases must not drift per
-// deploy environment.
-export const TREASURY = '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225';
+// Dedicated to Nukko: the previous address (0x3E32…4225) is shared with
+// Blokaz, which made revenue attribution impossible.
+export const TREASURY = '0xAF3B714fDDa5A3b4311f78ccfe0873A990819A35';
 
 // Celo mainnet stablecoins supported for purchases. Match Blokaz's checkout
 // table: transfers use the token address only; MiniPay handles network fees.
