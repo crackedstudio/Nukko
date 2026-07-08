@@ -85,7 +85,6 @@ function PowerItem({ icon, label, count, hasCount, color, onClick, disabled }) {
 export default function BottomBar({
   totalBombs,
   totalExpands,
-  showPowerUps = true,
   onBombTap,
   onExpandTap,
   onTimeTap,
@@ -96,28 +95,24 @@ export default function BottomBar({
 
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      {showPowerUps && (
-        <PowerItem
-          icon={<BombIcon   size={26} color={bombCount   > 0 ? '#ffd700' : 'rgba(255,215,0,0.28)'} />}
-          label="Bombs"
-          count={bombCount}
-          hasCount={totalBombs !== undefined}
-          color="#ffd700"
-          onClick={onBombTap}
-          disabled={disabled}
-        />
-      )}
-      {showPowerUps && (
-        <PowerItem
-          icon={<ExpandIcon size={26} color={expandCount > 0 ? '#00d4ff' : 'rgba(0,212,255,0.28)'} />}
-          label="Expand"
-          count={expandCount}
-          hasCount={totalExpands !== undefined}
-          color="#00d4ff"
-          onClick={onExpandTap}
-          disabled={disabled}
-        />
-      )}
+      <PowerItem
+        icon={<BombIcon   size={26} color={bombCount   > 0 ? '#ffd700' : 'rgba(255,215,0,0.28)'} />}
+        label="Bombs"
+        count={bombCount}
+        hasCount={totalBombs !== undefined}
+        color="#ffd700"
+        onClick={onBombTap}
+        disabled={disabled}
+      />
+      <PowerItem
+        icon={<ExpandIcon size={26} color={expandCount > 0 ? '#00d4ff' : 'rgba(0,212,255,0.28)'} />}
+        label="Expand"
+        count={expandCount}
+        hasCount={totalExpands !== undefined}
+        color="#00d4ff"
+        onClick={onExpandTap}
+        disabled={disabled}
+      />
       <PowerItem
         icon={<ClockIcon  size={26} color="rgba(167,139,255,0.85)" />}
         label="Time"

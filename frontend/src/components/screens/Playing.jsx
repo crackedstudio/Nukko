@@ -546,7 +546,7 @@ export default function Playing({
                 Connect wallet to unlock power-ups &amp; earn CELO
               </div>
             </div>
-          ) : (
+          ) : powerUpsEnabled ? (
             <div style={{
               flexShrink: 0,
               borderTop: '1px solid rgba(0,212,255,0.18)',
@@ -556,14 +556,13 @@ export default function Playing({
               <BottomBar
                 totalBombs={totalBombs}
                 totalExpands={totalExpands}
-                showPowerUps={powerUpsEnabled}
                 onBombTap={onBuyBombs}
                 onExpandTap={onBuyExpands}
                 onTimeTap={() => setTimeShopOpen(true)}
                 disabled={gameOver}
               />
             </div>
-          )}
+          ) : null}
         </div>
       </CosmicBackground>
 
@@ -584,7 +583,7 @@ export default function Playing({
       )}
 
       {/* Time shop modal */}
-      {timeShopOpen && (
+      {timeShopOpen && powerUpsEnabled && (
         <TimeShop
           packages={packages}
           selectedToken={selectedToken}
