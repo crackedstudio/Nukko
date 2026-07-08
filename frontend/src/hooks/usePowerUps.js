@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { POWERUP_PACKAGES } from '../blockchain/tokens.js';
-import { sendPayment }       from '../utils/payment.js';
-import { useBalances }       from './useBalances.js';
+import { encodeFunctionData } from 'viem';
+import { publicClient } from '../blockchain/config.js';
+import { STABLECOINS, ERC20_ABI, POWERUP_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
+import { isMiniPay } from '../utils/miniPay.js';
+import { useBalances } from './useBalances.js';
 import { getInventory, updateInventory, recordPurchase } from '../supabase/db.js';
 
 const DEFAULT_INV = { free_bombs_left: 3, free_expands_left: 3, paid_bombs: 0, paid_expands: 0 };
@@ -67,10 +69,45 @@ export function usePowerUps(walletClient, address) {
     const pkg = POWERUP_PACKAGES[pkgIdx];
 
     try {
-      // sendPayment resolves only after the tx is confirmed on-chain (or the
-      // receipt poll fails post-broadcast) — the player has paid, so the
-      // grant below must never be blocked by server logging.
-      const txHash = await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
+      const token = STABLECOINS[key];
+      const cost  = priceWei(pkg.priceUSD, token.decimals);
+      const data  = encodeFunctionData({
+        abi:          ERC20_ABI,
+        functionName: 'transfer',
+        args:         [TREASURY, cost],
+      });
+
+      let txHash;
+      if (isMiniPay()) {
+        // Bypass viem entirely — raw eth_accounts + eth_sendTransaction with
+        // explicit gas skips viem's Celo fee preparation that MiniPay's
+        // injected provider rejects. MiniPay handles nonce, gas price, signing.
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: accounts[0], to: token.address, data, gas: '0x493E0' }],
+        });
+      } else {
+        if (!walletRef.current) throw new Error('Wallet not connected');
+        txHash = await walletRef.current.sendTransaction({ to: token.address, data });
+      }
+
+      if (!txHash) throw new Error('Transaction hash unavailable — purchase may not have gone through');
+
+      // Only an explicit on-chain revert withholds the items; a receipt-polling
+      // failure after a broadcast tx still credits them (the player paid).
+      let reverted = false;
+      if (publicClient) {
+        try {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+          reverted = receipt.status === 'reverted';
+        } catch (waitErr) {
+          console.warn('Receipt polling failed after power-up tx was sent — crediting items:', waitErr);
+        }
+      }
+      if (reverted) {
+        throw new Error('Payment failed on-chain — you were not charged');
+      }
 
       const next = { ...inv };
       if (type === 'bomb')   next.paid_bombs   += pkg.qty;
@@ -97,7 +134,11 @@ export function usePowerUps(walletClient, address) {
 
       return pkg.qty;
     } catch (err) {
-      const msg = err?.message || 'Transaction failed';
+      console.error('Power-up tx error:', err);
+      const msg =
+        err?.message ||
+        err?.data?.message ||
+        (typeof err === 'string' ? err : 'Transaction failed');
       throw new Error(msg.length > 80 ? msg.slice(0, 80) + '…' : msg);
     } finally {
       isPayingRef.current = false;

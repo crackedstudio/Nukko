@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { STABLECOINS, TIME_PACKAGES } from '../blockchain/tokens.js';
-import { sendPayment }                from '../utils/payment.js';
-import { useBalances }                from './useBalances.js';
-import { recordPurchase }             from '../supabase/db.js';
+import { encodeFunctionData } from 'viem';
+import { publicClient } from '../blockchain/config.js';
+import { STABLECOINS, ERC20_ABI, TIME_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
+import { isMiniPay } from '../utils/miniPay.js';
+import { useBalances } from './useBalances.js';
+import { recordPurchase } from '../supabase/db.js';
 
 export function usePurchase(walletClient, address, addTime) {
   const [loading,       setLoading]       = useState(false);
@@ -28,8 +30,58 @@ export function usePurchase(walletClient, address, addTime) {
     const pkg = TIME_PACKAGES[packageIndex];
 
     try {
-      const txHash = await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
+      const token = STABLECOINS[key];
+      const cost  = priceWei(pkg.priceUSD, token.decimals);
+      const data  = encodeFunctionData({
+        abi:          ERC20_ABI,
+        functionName: 'transfer',
+        args:         [TREASURY, cost],
+      });
 
+      let txHash;
+      if (isMiniPay()) {
+        // Bypass viem entirely — viem's prepareTransactionRequest on the Celo
+        // chain tries CIP-42 (maxFeePerGas) or calls eth_estimateGas with Celo
+        // specific params that MiniPay's injected provider rejects with RpcError.
+        // Raw eth_accounts + eth_sendTransaction with explicit gas skips all of
+        // that. MiniPay handles nonce, gas price, and signing internally.
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: accounts[0],
+            to:   token.address,
+            data,
+            gas:  '0x493E0', // 300 000 — sufficient for ERC-20 transfer
+          }],
+        });
+      } else {
+        if (!walletRef.current) throw new Error('Wallet not connected');
+        txHash = await walletRef.current.sendTransaction({ to: token.address, data });
+      }
+
+      if (!txHash) throw new Error('Transaction hash unavailable — purchase may not have gone through');
+
+      // Wait for the tx to be mined before granting time. An on-chain revert
+      // means the player was NOT charged → no time. A receipt-polling failure
+      // means the tx was broadcast and almost certainly mined → the player
+      // paid, so the time MUST still be granted.
+      let reverted = false;
+      if (publicClient) {
+        try {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+          reverted = receipt.status === 'reverted';
+        } catch (waitErr) {
+          console.warn('Receipt polling failed after purchase tx was sent — granting time:', waitErr);
+        }
+      }
+      if (reverted) {
+        throw new Error('Payment failed on-chain — you were not charged');
+      }
+
+      refreshBalances();
+
+      // Log the confirmed purchase to the server (permanent receipt) — non-blocking
       recordPurchase({
         walletAddress: address,
         txHash,
@@ -40,9 +92,9 @@ export function usePurchase(walletClient, address, addTime) {
       }).catch(err => console.error('Failed to record purchase:', err));
 
       addTime(pkg.seconds);
-      refreshBalances();
       return pkg.seconds;
     } catch (err) {
+      console.error('Purchase tx error:', err);
       const msg =
         err?.message ||
         err?.data?.message ||
@@ -54,7 +106,7 @@ export function usePurchase(walletClient, address, addTime) {
       isPayingRef.current = false;
       setLoading(false);
     }
-  }, [address, addTime, selectedToken, balances, refreshBalances]);
+  }, [address, addTime, selectedToken, refreshBalances]);
 
   return {
     packages:      TIME_PACKAGES,
