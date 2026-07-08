@@ -28,10 +28,29 @@ export async function sendPayment(walletClient, address, priceUSD, tokenKey, pre
     args:         [TREASURY, cost],
   });
 
+  let txHash;
   if (isMiniPay()) {
-    return miniPaySend(token.address, data);
+    txHash = await miniPaySend(token.address, data);
   } else {
     if (!walletClient) throw new Error('Wallet not connected');
-    return walletClient.sendTransaction({ to: token.address, data });
+    txHash = await walletClient.sendTransaction({ to: token.address, data });
   }
+
+  if (!txHash) throw new Error('Transaction hash unavailable — purchase may not have gone through');
+
+  // Wait for the tx to be mined before granting anything. Distinguish an
+  // on-chain revert (player NOT charged → don't grant) from receipt-polling
+  // failures (tx was broadcast and almost certainly mined → the player paid,
+  // so the purchase MUST still be granted).
+  try {
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    if (receipt.status === 'reverted') {
+      throw new Error('Payment failed on-chain — you were not charged');
+    }
+  } catch (err) {
+    if (err.message?.includes('not charged')) throw err;
+    console.warn('Receipt polling failed after tx was sent — treating as paid:', err);
+  }
+
+  return txHash;
 }

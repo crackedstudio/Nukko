@@ -67,6 +67,9 @@ export function usePowerUps(walletClient, address) {
     const pkg = POWERUP_PACKAGES[pkgIdx];
 
     try {
+      // sendPayment resolves only after the tx is confirmed on-chain (or the
+      // receipt poll fails post-broadcast) — the player has paid, so the
+      // grant below must never be blocked by server logging.
       const txHash = await sendPayment(walletRef.current, address, pkg.priceUSD, key, balances[key]);
 
       const next = { ...inv };
@@ -74,22 +77,24 @@ export function usePowerUps(walletClient, address) {
       if (type === 'expand') next.paid_expands += pkg.qty;
       setInv(next);
 
-      await Promise.all([
-        updateInventory(address, {
-          paid_bombs:   next.paid_bombs,
-          paid_expands: next.paid_expands,
-        }),
-        recordPurchase({
-          walletAddress: address,
-          txHash,
-          itemType:      type,
-          packageIndex:  pkgIdx,
-          token:         key,
-          amount:        pkg.priceUSD,
-        }),
-      ]);
-
       refreshBalances();
+
+      // Persist inventory + log the confirmed purchase (permanent receipt) —
+      // non-blocking, same as Blokaz's logPurchase
+      updateInventory(address, {
+        paid_bombs:   next.paid_bombs,
+        paid_expands: next.paid_expands,
+      }).catch(err => console.error('Failed to sync inventory:', err));
+
+      recordPurchase({
+        walletAddress: address,
+        txHash,
+        itemType:      type,
+        packageIndex:  pkgIdx,
+        token:         key,
+        amount:        pkg.priceUSD,
+      }).catch(err => console.error('Failed to record purchase:', err));
+
       return pkg.qty;
     } catch (err) {
       const msg = err?.message || 'Transaction failed';

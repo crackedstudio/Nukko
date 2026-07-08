@@ -1,0 +1,18 @@
+name: Keep API warm
+
+# Render's free tier spins the server down after ~15 min idle; a cold start
+# takes ~50 s, long enough that fire-and-forget writes from the game get
+# dropped. Ping the health endpoint so the instance stays up.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -sf --max-time 90 https://nukko.onrender.com/api/health \
+            || echo "::warning::health ping failed"

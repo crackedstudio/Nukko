@@ -92,6 +92,8 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
   // Chain combo
   const chainCountRef  = useRef(0);
   const lastMergeTimeRef = useRef(0);
+  // Total merges this run — reported to the session log at game over
+  const mergeCountRef = useRef(0);
   // Visibility
   const visHandlerRef  = useRef(null);
   const lastTimeRef    = useRef(0);
@@ -753,6 +755,7 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
           chainCountRef.current = 1;
         }
         lastMergeTimeRef.current = now2;
+        mergeCountRef.current += 1;
         const multiplier = 1 + (chainCountRef.current - 1) * 0.5;
         const rawPts     = FRUITS[newIdx].pts;
         const finalPts   = Math.round(rawPts * multiplier);
@@ -884,6 +887,7 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     canDropRef.current        = true;
     chainCountRef.current     = 0;
     lastMergeTimeRef.current  = 0;
+    mergeCountRef.current     = 0;
     lastDropTimeRef.current   = 0;
     containerWRef.current     = initialW;
     dropXRef.current          = initialW / 2;
@@ -1068,5 +1072,6 @@ export function useGame(onScorePts, onToast, onAddTime, audio) {
     activateBomb,
     expandContainer,
     triggerTimeFX,
+    getMergeCount: () => mergeCountRef.current,
   };
 }

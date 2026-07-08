@@ -113,7 +113,11 @@ export default function App() {
     startEngine, dropFruit, movePointer, stopEngine,
     pauseEngine, resumeEngine,
     activateBomb, expandContainer, triggerTimeFX,
+    getMergeCount,
   } = useGame(handleScorePts, showToast, addTime, audio);
+
+  // Power-ups used during the current run — reported to the session log
+  const powerUpsUsedRef = useRef({ bombs: 0, expands: 0 });
 
   const {
     entries: leaderboard,
@@ -219,6 +223,7 @@ export default function App() {
     // Fresh start — guests get 25 s, ranked players get full 90 s
     setScore(0);
     scoreRef.current = 0;
+    powerUpsUsedRef.current = { bombs: 0, expands: 0 };
     gameStartTimeRef.current = Date.now();
     startEngine();
     startTimer(isGuestRef.current ? 25 : undefined);
@@ -239,6 +244,23 @@ export default function App() {
       : null;
 
     (async () => {
+      // Save session + leaderboard entry to Supabase first (non-blocking) so
+      // the record survives even when the on-chain score submit fails
+      const username = profileRef.current?.username ?? null;
+      saveGameSession({
+        walletAddress:   address,
+        score:           submitted,
+        durationSeconds,
+        merges:          getMergeCount(),
+        powerUpsUsed:    { ...powerUpsUsedRef.current },
+      }).catch(err => console.error('saveGameSession failed:', err));
+
+      addLeaderboardEntry({
+        walletAddress: address,
+        username,
+        score:         submitted,
+      }).catch(err => console.error('addLeaderboardEntry failed:', err));
+
       try {
         await submitScoreTx(submitted);
 
@@ -249,20 +271,6 @@ export default function App() {
         const newRecord = submitted > prevBest;
         setIsNewRecord(newRecord);
         setFinalScore(submitted);
-
-        // Save session + leaderboard entry to Supabase (non-blocking)
-        const username = profileRef.current?.username ?? null;
-        saveGameSession({
-          walletAddress:   address,
-          score:           submitted,
-          durationSeconds,
-        }).catch(err => console.error('saveGameSession failed:', err));
-
-        addLeaderboardEntry({
-          walletAddress: address,
-          username,
-          score:         submitted,
-        }).catch(err => console.error('addLeaderboardEntry failed:', err));
 
         // Refresh leaderboard then find player's rank
         await refreshLeaderboard();
@@ -374,6 +382,7 @@ export default function App() {
   const handleUseBomb = useCallback(() => {
     const consumed = consumeBomb();
     if (!consumed) return;
+    powerUpsUsedRef.current.bombs += 1;
     const removed = activateBomb();
     if (removed) showToast('Detonated! +200');
   }, [consumeBomb, activateBomb, showToast]);
@@ -381,6 +390,7 @@ export default function App() {
   const handleUseExpand = useCallback(() => {
     const consumed = consumeExpand();
     if (!consumed) return;
+    powerUpsUsedRef.current.expands += 1;
     expandContainer();
     showToast('Vacuum widened!');
   }, [consumeExpand, expandContainer, showToast]);

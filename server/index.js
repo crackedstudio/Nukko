@@ -125,16 +125,17 @@ app.post('/api/purchases', async (req, res) => {
   const { data: player } = await supabase.from('players').select('wallet_address').eq('wallet_address', addr).single();
   if (!player) await supabase.from('players').insert({ wallet_address: addr });
 
+  // Upsert keyed on tx_hash so client retries can never duplicate a purchase
   const { error } = await supabase
     .from('purchases')
-    .insert({
+    .upsert({
       wallet_address: addr,
       tx_hash: txHash,
       item_type: itemType,
       package_index: packageIndex,
       token,
       amount,
-    });
+    }, { onConflict: 'tx_hash', ignoreDuplicates: true });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
