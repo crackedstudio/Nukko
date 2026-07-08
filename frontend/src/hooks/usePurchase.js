@@ -45,16 +45,37 @@ export function usePurchase(walletClient, address, addTime) {
         // specific params that MiniPay's injected provider rejects with RpcError.
         // Raw eth_accounts + eth_sendTransaction with explicit gas skips all of
         // that. MiniPay handles nonce, gas price, and signing internally.
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        txHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: accounts[0],
-            to:   token.address,
-            data,
-            gas:  '0x493E0', // 300 000 — sufficient for ERC-20 transfer
-          }],
-        });
+        let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (!accounts?.[0]) {
+          // Session grant lapsed — re-request (implicit inside MiniPay, no popup)
+          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+        const txParams = {
+          from:        accounts[0],
+          to:          token.address,
+          data,
+          gas:         '0x493E0', // 300 000 — sufficient for ERC-20 transfer
+          feeCurrency: token.feeCurrency, // CIP-64 adapter — network fee in the same stablecoin
+        };
+        try {
+          txHash = await window.ethereum.request({
+            method: 'eth_sendTransaction',
+            params: [txParams],
+          });
+        } catch (sendErr) {
+          // "permission denied" / EIP-1193 4100 = authorization lapsed between
+          // eth_accounts and the send — re-grant once and retry
+          const m = (sendErr?.message || '').toLowerCase();
+          if (sendErr?.code === 4100 || m.includes('permission') || m.includes('unauthorized')) {
+            const granted = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            txHash = await window.ethereum.request({
+              method: 'eth_sendTransaction',
+              params: [{ ...txParams, from: granted[0] }],
+            });
+          } else {
+            throw sendErr;
+          }
+        }
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
         txHash = await walletRef.current.sendTransaction({ to: token.address, data });
@@ -99,7 +120,10 @@ export function usePurchase(walletClient, address, addTime) {
         err?.message ||
         err?.data?.message ||
         (typeof err === 'string' ? err : 'Transaction failed');
-      const truncated = msg.length > 80 ? msg.slice(0, 80) + '…' : msg;
+      // Keep the provider's error code visible — it identifies exactly what
+      // MiniPay rejected (4100 auth, 4001 user reject, -32603 internal, …)
+      const code = err?.code !== undefined ? ` [${err.code}]` : '';
+      const truncated = (msg.length > 80 ? msg.slice(0, 80) + '…' : msg) + code;
       setError(truncated);
       throw new Error(truncated);
     } finally {

@@ -82,11 +82,34 @@ export function usePowerUps(walletClient, address) {
         // Bypass viem entirely — raw eth_accounts + eth_sendTransaction with
         // explicit gas skips viem's Celo fee preparation that MiniPay's
         // injected provider rejects. MiniPay handles nonce, gas price, signing.
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        txHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: accounts[0], to: token.address, data, gas: '0x493E0' }],
-        });
+        let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (!accounts?.[0]) {
+          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
+        const txParams = {
+          from:        accounts[0],
+          to:          token.address,
+          data,
+          gas:         '0x493E0',
+          feeCurrency: token.feeCurrency,
+        };
+        try {
+          txHash = await window.ethereum.request({
+            method: 'eth_sendTransaction',
+            params: [txParams],
+          });
+        } catch (sendErr) {
+          const m = (sendErr?.message || '').toLowerCase();
+          if (sendErr?.code === 4100 || m.includes('permission') || m.includes('unauthorized')) {
+            const granted = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            txHash = await window.ethereum.request({
+              method: 'eth_sendTransaction',
+              params: [{ ...txParams, from: granted[0] }],
+            });
+          } else {
+            throw sendErr;
+          }
+        }
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
         txHash = await walletRef.current.sendTransaction({ to: token.address, data });
@@ -139,7 +162,8 @@ export function usePowerUps(walletClient, address) {
         err?.message ||
         err?.data?.message ||
         (typeof err === 'string' ? err : 'Transaction failed');
-      throw new Error(msg.length > 80 ? msg.slice(0, 80) + '…' : msg);
+      const code = err?.code !== undefined ? ` [${err.code}]` : '';
+      throw new Error((msg.length > 80 ? msg.slice(0, 80) + '…' : msg) + code);
     } finally {
       isPayingRef.current = false;
       setLoading(false);
