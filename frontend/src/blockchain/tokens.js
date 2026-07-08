@@ -6,10 +6,8 @@ import { parseUnits } from 'viem';
 // deploy environment.
 export const TREASURY = '0x3E325B45F72dFCc3875f75b5933A5da183Ec4225';
 
-// Celo mainnet stablecoins supported for time purchases.
-// feeCurrency is the CIP-64 fee token for MiniPay's gas abstraction — USDm
-// uses the token itself, USDC/USDT need their adapter address (passing the
-// token address as feeCurrency makes the tx fail).
+// Celo mainnet stablecoins supported for purchases. Match Blokaz's checkout
+// table: transfers use the token address only; MiniPay handles network fees.
 export const STABLECOINS = {
   USDm: {
     key:         'USDm',
@@ -17,7 +15,6 @@ export const STABLECOINS = {
     label:       'USDm',
     address:     '0x765DE816845861e75A25fCA122bb6898B8B1282a',
     decimals:    18,
-    feeCurrency: '0x765DE816845861e75A25fCA122bb6898B8B1282a',
   },
   USDC: {
     key:         'USDC',
@@ -25,7 +22,6 @@ export const STABLECOINS = {
     label:       'USDC',
     address:     '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
     decimals:    6,
-    feeCurrency: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',
   },
   USDT: {
     key:         'USDT',
@@ -33,7 +29,6 @@ export const STABLECOINS = {
     label:       'USDT',
     address:     '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
     decimals:    6,
-    feeCurrency: '0x0e2a3e05bc9a16f5292a6170456a710cb89c6f72',
   },
 };
 

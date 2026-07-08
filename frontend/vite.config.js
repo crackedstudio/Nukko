@@ -16,6 +16,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    modulePreload: {
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((dep) => !dep.includes('vendor-web3auth')),
+    },
     rollupOptions: {
       output: {
         manualChunks: (id) => {

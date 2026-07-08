@@ -15,8 +15,11 @@ export function useWallet() {
   const connect = useCallback(async () => {
     try {
       if (!window.ethereum) throw new Error('No wallet found. Open in MiniPay or install MetaMask.');
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await window.ethereum.request({
+        method: isMiniPay() ? 'eth_accounts' : 'eth_requestAccounts',
+      });
       const addr = accounts[0];
+      if (!addr) throw new Error('Wallet not connected');
       setAddress(addr);
       setWalletClient(createWalletClient({ chain: CHAIN, transport: custom(window.ethereum) }));
       setError(null);
@@ -62,9 +65,13 @@ export function useWallet() {
     }
   }, []);
 
-  // Auto-connect inside MiniPay — wallet is already injected
+  // Auto-connect inside MiniPay — wallet is already injected.
+  // Match Blokaz: wait for MiniPay injection to settle and read accounts
+  // silently instead of requesting permissions with eth_requestAccounts.
   useEffect(() => {
-    if (inMiniPay) connect();
+    if (!inMiniPay) return;
+    const timer = setTimeout(connect, 1000);
+    return () => clearTimeout(timer);
   }, [inMiniPay, connect]);
 
   return {
