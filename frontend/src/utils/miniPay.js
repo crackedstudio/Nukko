@@ -18,11 +18,14 @@ export function isMiniPay() {
  * (maxFeePerGas) or calls eth_estimateGas with Celo-specific params that
  * MiniPay's injected provider rejects with RpcError. Raw eth_sendTransaction
  * with an explicit gas limit skips all of that — MiniPay handles nonce,
- * gas price, and signing internally.
+ * gas price, signing, and stablecoin fee abstraction internally. For ERC-20
+ * transfers we still pass Celo's `feeCurrency` field so USDC/USDT use their
+ * required adapter addresses.
  *
  * @param {string}  to   Contract or token address
  * @param {string}  data Hex-encoded calldata (from encodeFunctionData)
  * @param {string}  [gas='0x493E0']  Hex gas limit — 300 000 default, enough for any call here
+ * @param {string}  [feeCurrency] Celo fee currency / adapter address
  * @returns {Promise<string>} Transaction hash
  */
 /**
@@ -43,10 +46,37 @@ export function isUserRejection(err) {
   );
 }
 
-export async function miniPaySend(to, data, gas = '0x493E0') {
-  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-  return window.ethereum.request({
-    method: 'eth_sendTransaction',
-    params: [{ from: accounts[0], to, data, gas }],
-  });
+export async function miniPaySend(to, data, gas = '0x493E0', feeCurrency) {
+  let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+  if (!accounts?.[0]) {
+    accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  }
+  if (!accounts?.[0]) {
+    throw new Error('MiniPay wallet account unavailable');
+  }
+
+  const txParams = {
+    from: accounts[0],
+    to,
+    data,
+    gas,
+    ...(feeCurrency ? { feeCurrency } : {}),
+  };
+
+  try {
+    return await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [txParams],
+    });
+  } catch (err) {
+    if (err?.code !== 4100) throw err;
+
+    const granted = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!granted?.[0]) throw err;
+
+    return window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{ ...txParams, from: granted[0] }],
+    });
+  }
 }

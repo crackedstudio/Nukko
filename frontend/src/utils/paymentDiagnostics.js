@@ -35,6 +35,7 @@ export function buildPaymentDiagnostic(err, context = {}) {
     `Treasury recipient: ${safeValue(context.treasury)}`,
     `Transaction to: ${safeValue(context.transactionTo)}`,
     `Gas limit: ${safeValue(context.gas)}`,
+    `Fee currency: ${safeValue(context.feeCurrency, 'none')}`,
     `Calldata selector: ${safeValue(context.selector)}`,
     `Tx hash returned: ${safeValue(context.txHash, 'none')}`,
   ];

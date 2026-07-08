@@ -14,6 +14,15 @@
   [headers.values]
     Content-Type = "text/css; charset=utf-8"
 
+# Canonical production origin for MiniPay allowlisting.
+# MiniPay's production provider checks the exact origin, so keep every public
+# entry point on the same host that is submitted/approved in MiniPay.
+[[redirects]]
+  from   = "https://nukko.xyz/*"
+  to     = "https://www.nukko.xyz/:splat"
+  status = 301
+  force  = true
+
 # SPA fallback — send all routes to index.html
 [[redirects]]
   from   = "/*"

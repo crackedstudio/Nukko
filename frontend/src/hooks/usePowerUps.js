@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { STABLECOINS, ERC20_ABI, POWERUP_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
-import { isMiniPay } from '../utils/miniPay.js';
+import { isMiniPay, miniPaySend } from '../utils/miniPay.js';
 import { buildPaymentDiagnostic } from '../utils/paymentDiagnostics.js';
 import { useBalances } from './useBalances.js';
 import { getInventory, updateInventory, recordPurchase } from '../supabase/db.js';
@@ -97,18 +97,13 @@ export function usePowerUps(walletClient, address) {
 
       let txHash;
       if (isMiniPay()) {
-        // Bypass viem entirely — raw eth_accounts + eth_sendTransaction with
-        // explicit gas skips viem's Celo fee preparation that MiniPay's
-        // injected provider rejects. MiniPay handles nonce, gas price, signing.
-        // No feeCurrency needed: MiniPay manages gas abstraction automatically.
-        diagnosticContext.phase = 'eth_accounts';
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        diagnosticContext.from = accounts[0];
+        // Bypass viem's Celo fee preparation, but keep Celo's feeCurrency
+        // field so MiniPay can route USDC/USDT through their adapter addresses.
         diagnosticContext.phase = 'eth_sendTransaction';
-        txHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: accounts[0], to: token.address, data, gas: '0x493E0' }],
+        Object.assign(diagnosticContext, {
+          feeCurrency: token.feeCurrency,
         });
+        txHash = await miniPaySend(token.address, data, '0x493E0', token.feeCurrency);
         diagnosticContext.txHash = txHash;
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');

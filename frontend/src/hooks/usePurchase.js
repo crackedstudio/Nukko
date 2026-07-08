@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { STABLECOINS, ERC20_ABI, TIME_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
-import { isMiniPay } from '../utils/miniPay.js';
+import { isMiniPay, miniPaySend } from '../utils/miniPay.js';
 import { buildPaymentDiagnostic } from '../utils/paymentDiagnostics.js';
 import { useBalances } from './useBalances.js';
 import { recordPurchase } from '../supabase/db.js';
@@ -61,22 +61,14 @@ export function usePurchase(walletClient, address, addTime) {
         // Bypass viem entirely — viem's prepareTransactionRequest on the Celo
         // chain tries CIP-42 (maxFeePerGas) or calls eth_estimateGas with Celo
         // specific params that MiniPay's injected provider rejects with RpcError.
-        // Raw eth_accounts + eth_sendTransaction with explicit gas skips all of
-        // that. MiniPay handles nonce, gas price, and signing internally.
-        // No feeCurrency needed: MiniPay manages gas abstraction automatically.
-        diagnosticContext.phase = 'eth_accounts';
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        diagnosticContext.from = accounts[0];
+        // Raw eth_sendTransaction with explicit gas skips viem's Celo fee
+        // preparation, while feeCurrency keeps USDC/USDT on their adapter
+        // addresses for MiniPay's stablecoin fee abstraction.
         diagnosticContext.phase = 'eth_sendTransaction';
-        txHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: accounts[0],
-            to:   token.address,
-            data,
-            gas:  '0x493E0', // 300 000 — sufficient for ERC-20 transfer
-          }],
+        Object.assign(diagnosticContext, {
+          feeCurrency: token.feeCurrency,
         });
+        txHash = await miniPaySend(token.address, data, '0x493E0', token.feeCurrency);
         diagnosticContext.txHash = txHash;
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
