@@ -3,6 +3,7 @@ import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { STABLECOINS, ERC20_ABI, POWERUP_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
 import { isMiniPay } from '../utils/miniPay.js';
+import { buildPaymentDiagnostic } from '../utils/paymentDiagnostics.js';
 import { useBalances } from './useBalances.js';
 import { getInventory, updateInventory, recordPurchase } from '../supabase/db.js';
 
@@ -67,6 +68,16 @@ export function usePowerUps(walletClient, address) {
 
     const key = tokenKey ?? selectedToken;
     const pkg = POWERUP_PACKAGES[pkgIdx];
+    const diagnosticContext = {
+      phase: 'prepare-payment',
+      wallet: address,
+      itemType: type,
+      packageIndex: pkgIdx,
+      tokenKey: key,
+      amountUsd: pkg?.priceUSD,
+      treasury: TREASURY,
+      gas: '0x493E0',
+    };
 
     try {
       const token = STABLECOINS[key];
@@ -76,6 +87,13 @@ export function usePowerUps(walletClient, address) {
         functionName: 'transfer',
         args:         [TREASURY, cost],
       });
+      Object.assign(diagnosticContext, {
+        phase: 'build-transfer-calldata',
+        tokenAddress: token.address,
+        transactionTo: token.address,
+        rawAmount: cost,
+        selector: data.slice(0, 10),
+      });
 
       let txHash;
       if (isMiniPay()) {
@@ -83,14 +101,20 @@ export function usePowerUps(walletClient, address) {
         // explicit gas skips viem's Celo fee preparation that MiniPay's
         // injected provider rejects. MiniPay handles nonce, gas price, signing.
         // No feeCurrency needed: MiniPay manages gas abstraction automatically.
+        diagnosticContext.phase = 'eth_accounts';
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        diagnosticContext.from = accounts[0];
+        diagnosticContext.phase = 'eth_sendTransaction';
         txHash = await window.ethereum.request({
           method: 'eth_sendTransaction',
           params: [{ from: accounts[0], to: token.address, data, gas: '0x493E0' }],
         });
+        diagnosticContext.txHash = txHash;
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
+        diagnosticContext.phase = 'walletClient.sendTransaction';
         txHash = await walletRef.current.sendTransaction({ to: token.address, data });
+        diagnosticContext.txHash = txHash;
       }
 
       if (!txHash) throw new Error('Transaction hash unavailable — purchase may not have gone through');
@@ -135,13 +159,12 @@ export function usePowerUps(walletClient, address) {
 
       return pkg.qty;
     } catch (err) {
-      console.error('Power-up tx error:', err);
-      const msg =
-        err?.message ||
-        err?.data?.message ||
-        (typeof err === 'string' ? err : 'Transaction failed');
-      const code = err?.code !== undefined ? ` [${err.code}]` : '';
-      throw new Error((msg.length > 80 ? msg.slice(0, 80) + '…' : msg) + code);
+      const details = buildPaymentDiagnostic(err, diagnosticContext);
+      console.error('Power-up tx diagnostic:', details.diagnostic, err);
+      const wrapped = new Error(details.shortMessage);
+      wrapped.diagnostic = details.diagnostic;
+      wrapped.code = details.code;
+      throw wrapped;
     } finally {
       isPayingRef.current = false;
       setLoading(false);

@@ -3,6 +3,7 @@ import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { STABLECOINS, ERC20_ABI, TIME_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
 import { isMiniPay } from '../utils/miniPay.js';
+import { buildPaymentDiagnostic } from '../utils/paymentDiagnostics.js';
 import { useBalances } from './useBalances.js';
 import { recordPurchase } from '../supabase/db.js';
 
@@ -28,6 +29,16 @@ export function usePurchase(walletClient, address, addTime) {
 
     const key = tokenKey ?? selectedToken;
     const pkg = TIME_PACKAGES[packageIndex];
+    const diagnosticContext = {
+      phase: 'prepare-payment',
+      wallet: address,
+      itemType: 'time',
+      packageIndex,
+      tokenKey: key,
+      amountUsd: pkg?.priceUSD,
+      treasury: TREASURY,
+      gas: '0x493E0',
+    };
 
     try {
       const token = STABLECOINS[key];
@@ -36,6 +47,13 @@ export function usePurchase(walletClient, address, addTime) {
         abi:          ERC20_ABI,
         functionName: 'transfer',
         args:         [TREASURY, cost],
+      });
+      Object.assign(diagnosticContext, {
+        phase: 'build-transfer-calldata',
+        tokenAddress: token.address,
+        transactionTo: token.address,
+        rawAmount: cost,
+        selector: data.slice(0, 10),
       });
 
       let txHash;
@@ -46,7 +64,10 @@ export function usePurchase(walletClient, address, addTime) {
         // Raw eth_accounts + eth_sendTransaction with explicit gas skips all of
         // that. MiniPay handles nonce, gas price, and signing internally.
         // No feeCurrency needed: MiniPay manages gas abstraction automatically.
+        diagnosticContext.phase = 'eth_accounts';
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        diagnosticContext.from = accounts[0];
+        diagnosticContext.phase = 'eth_sendTransaction';
         txHash = await window.ethereum.request({
           method: 'eth_sendTransaction',
           params: [{
@@ -56,9 +77,12 @@ export function usePurchase(walletClient, address, addTime) {
             gas:  '0x493E0', // 300 000 — sufficient for ERC-20 transfer
           }],
         });
+        diagnosticContext.txHash = txHash;
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
+        diagnosticContext.phase = 'walletClient.sendTransaction';
         txHash = await walletRef.current.sendTransaction({ to: token.address, data });
+        diagnosticContext.txHash = txHash;
       }
 
       if (!txHash) throw new Error('Transaction hash unavailable — purchase may not have gone through');
@@ -95,17 +119,13 @@ export function usePurchase(walletClient, address, addTime) {
       addTime(pkg.seconds);
       return pkg.seconds;
     } catch (err) {
-      console.error('Purchase tx error:', err);
-      const msg =
-        err?.message ||
-        err?.data?.message ||
-        (typeof err === 'string' ? err : 'Transaction failed');
-      // Keep the provider's error code visible — it identifies exactly what
-      // MiniPay rejected (4100 auth, 4001 user reject, -32603 internal, …)
-      const code = err?.code !== undefined ? ` [${err.code}]` : '';
-      const truncated = (msg.length > 80 ? msg.slice(0, 80) + '…' : msg) + code;
-      setError(truncated);
-      throw new Error(truncated);
+      const details = buildPaymentDiagnostic(err, diagnosticContext);
+      console.error('Purchase tx diagnostic:', details.diagnostic, err);
+      setError(details.shortMessage);
+      const wrapped = new Error(details.shortMessage);
+      wrapped.diagnostic = details.diagnostic;
+      wrapped.code = details.code;
+      throw wrapped;
     } finally {
       isPayingRef.current = false;
       setLoading(false);

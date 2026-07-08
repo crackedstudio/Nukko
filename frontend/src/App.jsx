@@ -377,7 +377,7 @@ export default function App() {
       triggerTimeFX(`+${secs}s`);
     } catch (err) {
       if (isUserRejection(err)) return; // stay on game board
-      showToast(err.message || 'Purchase failed');
+      showToast(err.diagnostic || err.message || 'Purchase failed', 9000);
     }
   }, [purchase, showToast, triggerTimeFX]);
 
@@ -404,7 +404,7 @@ export default function App() {
       setShop(null);
     } catch (err) {
       if (isUserRejection(err)) { setShop(null); return; } // stay on game board
-      showToast(err.message || 'Purchase failed');
+      showToast(err.diagnostic || err.message || 'Purchase failed', 9000);
     }
   }, [buyPowerUp, shop, showToast]);
 
