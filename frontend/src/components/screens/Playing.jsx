@@ -227,6 +227,7 @@ export default function Playing({
   balances,
   totalBombs,
   totalExpands,
+  powerUpsEnabled,
   onUseBomb,
   onUseExpand,
   onBuyBombs,
@@ -555,6 +556,7 @@ export default function Playing({
               <BottomBar
                 totalBombs={totalBombs}
                 totalExpands={totalExpands}
+                showPowerUps={powerUpsEnabled}
                 onBombTap={onBuyBombs}
                 onExpandTap={onBuyExpands}
                 onTimeTap={() => setTimeShopOpen(true)}
@@ -566,7 +568,7 @@ export default function Playing({
       </CosmicBackground>
 
       {/* Power-up shop modal */}
-      {shop && (
+      {shop && powerUpsEnabled && (
         <PowerUpShop
           type={shop}
           packages={powerUpPackages}
