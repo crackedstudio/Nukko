@@ -3,6 +3,7 @@ import CosmicBackground from '../ui/CosmicBackground.jsx';
 import Planet           from '../ui/Planet.jsx';
 import Leaderboard      from '../ui/Leaderboard.jsx';
 import { PLANET_DATA }  from '../ui/Planet.jsx';
+import { buildScorePost, GAME_URL } from '../../utils/social.js';
 
 function Confetti() {
   const items = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
@@ -47,6 +48,17 @@ function ShareIcon({ size = 18, color = '#fff' }) {
   );
 }
 
+// MiniPay's webview blocks external navigation, so no X intent link here —
+// the native share sheet (or clipboard) carries the @playnukko brag instead.
+function handleShare(score, planetName, rank) {
+  const text = buildScorePost(score, planetName, rank);
+  if (navigator.share) {
+    navigator.share({ title: 'Nukko', text, url: GAME_URL }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(`${text}\n\n${GAME_URL}`).catch(() => {});
+  }
+}
+
 function stageFromScore(score) {
   if (!score || score < 100)  return 2;
   if (score < 500)   return 3;
@@ -56,15 +68,6 @@ function stageFromScore(score) {
   if (score < 20000) return 11;
   if (score < 50000) return 12;
   return 13;
-}
-
-function handleShare(score, rank) {
-  const text = `I scored ${score.toLocaleString()} in NUKKO${rank ? ` and ranked #${rank}` : ''}! Drop. Merge. Evolve. 🌌`;
-  if (navigator.share) {
-    navigator.share({ title: 'Nukko', text }).catch(() => {});
-  } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).catch(() => {});
-  }
 }
 
 export default function Result({
@@ -201,15 +204,15 @@ export default function Result({
 
           {/* ── Actions ─────────────────────────────────────────────────── */}
           <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
-            {/* Share */}
+            {/* Share — native share sheet with the @playnukko brag text */}
             <button
-              onClick={() => handleShare(score, rank)}
+              onClick={() => handleShare(score, planet?.name, rank)}
               style={{
                 height: 56, paddingInline: 18, borderRadius: 16, flexShrink: 0,
                 background: 'rgba(255,255,255,0.07)',
                 border: '1px solid rgba(255,255,255,0.14)',
                 color: '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                 fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 13,
               }}
             >

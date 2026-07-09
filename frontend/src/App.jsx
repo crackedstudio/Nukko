@@ -26,6 +26,13 @@ import HowToPlay     from './components/ui/HowToPlay.jsx';
 import LowGasModal   from './components/ui/LowGasModal.jsx';
 import LegalModal    from './components/ui/LegalModal.jsx';
 import FAQModal      from './components/ui/FAQModal.jsx';
+import FollowXModal  from './components/ui/FollowXModal.jsx';
+import {
+  recordGameFinished,
+  shouldShowFollowPrompt,
+  markFollowPromptShown,
+  markFollowPromptDone,
+} from './utils/social.js';
 
 const S = {
   WALLET_CONNECT: 'WALLET_CONNECT',
@@ -60,6 +67,7 @@ export default function App() {
   useEffect(() => { isGuestRef.current = isGuestMode; }, [isGuestMode]);
   const [legalModal,    setLegalModal]    = useState(null); // 'terms'|'privacy'|'about'|null
   const [showFAQ,       setShowFAQ]       = useState(false);
+  const [showFollowPrompt, setShowFollowPrompt] = useState(false);
 
   // Refs prevent stale closures in timer/game callbacks
   const screenRef  = useRef(screen);
@@ -289,6 +297,19 @@ export default function App() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // Occasional "follow us on X" prompt — shows on the result screen after the
+  // score animation settles. All frequency gating lives in utils/social.js.
+  useEffect(() => {
+    if (screen !== S.RESULT) return;
+    recordGameFinished();
+    if (!shouldShowFollowPrompt()) return;
+    const timer = setTimeout(() => {
+      markFollowPromptShown();
+      setShowFollowPrompt(true);
+    }, 1600);
+    return () => clearTimeout(timer);
   }, [screen]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -558,6 +579,12 @@ export default function App() {
           balanceDisplay={balanceDisplay}
           checking={gasChecking}
           onRecheck={recheckNow}
+        />
+      )}
+      {showFollowPrompt && (
+        <FollowXModal
+          onClose={() => setShowFollowPrompt(false)}
+          onFollowed={markFollowPromptDone}
         />
       )}
       {/* Splash screen sits on top of everything, self-dismisses after ~3s */}

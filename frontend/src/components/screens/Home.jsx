@@ -3,6 +3,8 @@ import CosmicBackground from '../ui/CosmicBackground.jsx';
 import NukkoWordmark    from '../ui/NukkoWordmark.jsx';
 import Planet           from '../ui/Planet.jsx';
 import Leaderboard      from '../ui/Leaderboard.jsx';
+import { XLogoIcon }    from '../ui/Icons.jsx';
+import { openXProfile, X_HANDLE } from '../../utils/social.js';
 
 function stageFromScore(score) {
   if (!score || score < 100)  return 2;
@@ -277,6 +279,27 @@ export default function Home({ profile, address: walletAddress, isMiniPay, leade
                 </button>
               </>
             )}
+
+            {/* Follow on X */}
+            <div style={{
+              display: 'flex', justifyContent: 'center',
+              marginTop: 12, pointerEvents: 'all',
+            }}>
+              <button
+                onClick={openXProfile}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '7px 16px', borderRadius: 99,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(255,255,255,0.75)', cursor: 'pointer',
+                  fontFamily: '"Nunito", system-ui', fontWeight: 700, fontSize: 12,
+                }}
+              >
+                <XLogoIcon size={13} color="rgba(255,255,255,0.75)" />
+                Follow {X_HANDLE}
+              </button>
+            </div>
 
             {/* Legal footer */}
             <div style={{
