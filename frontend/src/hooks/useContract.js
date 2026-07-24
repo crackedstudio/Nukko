@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../blockchain/contract.js';
+import { ATTRIBUTION_SUFFIX, withAttribution } from '../blockchain/attribution.js';
 import { isMiniPay, miniPaySend } from '../utils/miniPay.js';
 
 /**
@@ -15,7 +16,9 @@ async function sendContractTx(walletClient, address, functionName, args = []) {
   let hash;
 
   if (isMiniPay()) {
-    const data = encodeFunctionData({ abi: CONTRACT_ABI, functionName, args });
+    // Append the ERC-8021 attribution suffix to the calldata (invisible to the
+    // contract; the EVM discards trailing bytes) so the tx is credited to Nukko.
+    const data = withAttribution(encodeFunctionData({ abi: CONTRACT_ABI, functionName, args }));
     // miniPaySend returns the tx hash — MiniPay handles nonce, gas price, signing
     hash = await miniPaySend(CONTRACT_ADDRESS, data);
   } else {
@@ -25,6 +28,7 @@ async function sendContractTx(walletClient, address, functionName, args = []) {
       functionName,
       args,
       account:      address,
+      dataSuffix:   ATTRIBUTION_SUFFIX, // viem concatenates this onto the calldata
     });
   }
 

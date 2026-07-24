@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { encodeFunctionData } from 'viem';
 import { publicClient } from '../blockchain/config.js';
 import { STABLECOINS, ERC20_ABI, TIME_PACKAGES, TREASURY, priceWei } from '../blockchain/tokens.js';
+import { withAttribution } from '../blockchain/attribution.js';
 import { isMiniPay, miniPaySend } from '../utils/miniPay.js';
 import { buildPaymentDiagnostic } from '../utils/paymentDiagnostics.js';
 import { useBalances } from './useBalances.js';
@@ -48,6 +49,9 @@ export function usePurchase(walletClient, address, addTime) {
         functionName: 'transfer',
         args:         [TREASURY, cost],
       });
+      // Append the ERC-8021 attribution suffix so the transfer is credited to
+      // Nukko. Trailing bytes don't affect the ERC-20 transfer's execution.
+      const taggedData = withAttribution(data);
       Object.assign(diagnosticContext, {
         phase: 'build-transfer-calldata',
         tokenAddress: token.address,
@@ -68,12 +72,12 @@ export function usePurchase(walletClient, address, addTime) {
         Object.assign(diagnosticContext, {
           feeCurrency: token.feeCurrency,
         });
-        txHash = await miniPaySend(token.address, data, '0x493E0', token.feeCurrency);
+        txHash = await miniPaySend(token.address, taggedData, '0x493E0', token.feeCurrency);
         diagnosticContext.txHash = txHash;
       } else {
         if (!walletRef.current) throw new Error('Wallet not connected');
         diagnosticContext.phase = 'walletClient.sendTransaction';
-        txHash = await walletRef.current.sendTransaction({ to: token.address, data });
+        txHash = await walletRef.current.sendTransaction({ to: token.address, data: taggedData });
         diagnosticContext.txHash = txHash;
       }
 
