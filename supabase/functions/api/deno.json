@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.108.2",
+    "cors": "npm:cors@2.8.6",
+    "dotenv": "npm:dotenv@17.4.2",
+    "dotenv/": "npm:/dotenv@17.4.2/",
+    "express": "npm:express@5.2.1",
+    "viem": "npm:viem@2.56.1",
+    "viem/": "npm:/viem@2.56.1/"
+  }
+}

@@ -13,16 +13,22 @@ export function adminRoutes(supabase, { settleCashGrant }) {
   const r = Router();
 
   // ─── Sign-in (public: these two are the way IN) ────────────
-  r.get('/api/admin/nonce', (_req, res) => res.json(issueNonce()));
+  r.get('/api/admin/nonce', async (_req, res) => {
+    try {
+      res.json(await issueNonce(supabase));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   r.post('/api/admin/verify', async (req, res) => {
-    const result = await verifySignature(req.body ?? {});
+    const result = await verifySignature(supabase, req.body ?? {});
     if (!result.ok) return res.status(401).json({ error: result.error });
     res.json(result);
   });
 
   // Everything below requires a verified signature session.
-  r.use('/api/admin', requireAdmin);
+  r.use('/api/admin', requireAdmin(supabase));
 
   r.get('/api/admin/ping', (req, res) => res.json({ ok: true, address: req.adminAddress }));
 

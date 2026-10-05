@@ -1,0 +1,20 @@
+# Only the settings this project relies on; everything else is the CLI default.
+# Reference: https://supabase.com/docs/guides/local-development/cli/config
+project_id = "nukko"
+
+[db]
+major_version = 17
+
+[edge_runtime]
+enabled = true
+deno_version = 2
+
+# The game API (the former Render server). It is called straight from the
+# browser with no Supabase session, so the gateway must not demand a JWT;
+# every route does its own checks (on-chain verification, admin signature
+# sessions, CRON_SECRET on the indexer).
+[functions.api]
+enabled = true
+verify_jwt = false
+import_map = "./functions/api/deno.json"
+entrypoint = "./functions/api/index.ts"

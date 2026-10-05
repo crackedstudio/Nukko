@@ -19,12 +19,13 @@ const MAX_CHUNK   = Number(process.env.INDEXER_CHUNK || 5_000);
 const BOOTSTRAP_BLOCKS = Number(process.env.INDEXER_BOOTSTRAP_BLOCKS || 700_000); // ~8 days
 const MIN_INTERVAL_MS  = 15_000;
 
-let running   = false;
-let lastRunAt = 0;
+// Per process only. On Supabase every isolate starts with this false, so the
+// interval check below reads the last sweep time from the database instead:
+// an in-memory timestamp would let every fresh isolate sweep again.
+let running = false;
 
-async function getLastBlock(supabase) {
-  const { data } = await supabase.from('indexer_state').select('last_block').eq('id', 1).single();
-  if (data?.last_block) return BigInt(data.last_block);
+async function getLastBlock(supabase, state) {
+  if (state?.last_block) return BigInt(state.last_block);
 
   const head  = await publicClient.getBlockNumber();
   const start = head > BigInt(BOOTSTRAP_BLOCKS) ? head - BigInt(BOOTSTRAP_BLOCKS) : 0n;
@@ -76,12 +77,16 @@ async function blockTimes(blockNumbers) {
  */
 export async function syncChainEvents(supabase, { force = false } = {}) {
   if (running) return { skipped: 'already-running' };
+
+  const { data: state } = await supabase
+    .from('indexer_state').select('last_block, updated_at').eq('id', 1).maybeSingle();
+  const lastRunAt = state?.updated_at ? Date.parse(state.updated_at) : 0;
   if (!force && Date.now() - lastRunAt < MIN_INTERVAL_MS) return { skipped: 'rate-limited' };
 
   running = true;
   try {
     const head = await publicClient.getBlockNumber();
-    const from = await getLastBlock(supabase) + 1n;
+    const from = await getLastBlock(supabase, state) + 1n;
     if (from > head) return { indexed: 0, head: Number(head) };
 
     const logs = await fetchLogsChunked(from, head);
@@ -113,7 +118,6 @@ export async function syncChainEvents(supabase, { force = false } = {}) {
       id: 1, last_block: Number(head), updated_at: new Date().toISOString(),
     });
 
-    lastRunAt = Date.now();
     return { indexed: logs.length, from: Number(from), head: Number(head) };
   } finally {
     running = false;

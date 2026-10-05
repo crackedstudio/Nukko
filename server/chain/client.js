@@ -25,3 +25,12 @@ export const STABLECOINS = {
 
 // Cheapest thing in the shop is $0.10 — anything below that is not a purchase.
 export const MIN_PURCHASE_USD = 0.10;
+
+// What each power-up package grants and costs. Must match POWERUP_PACKAGES in
+// frontend/src/blockchain/tokens.js — the server grants from this list, never
+// from a quantity the client reports.
+export const POWERUP_PACKAGES = [
+  { qty: 1,  priceUSD: 0.10 },
+  { qty: 5,  priceUSD: 0.40 },
+  { qty: 10, priceUSD: 0.90 },
+];

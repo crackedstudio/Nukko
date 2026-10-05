@@ -6,7 +6,7 @@
 // the treasury, at or above the cheapest package price.
 
 import { parseAbiItem, decodeEventLog, formatUnits } from 'viem';
-import { publicClient, TREASURY, STABLECOINS, MIN_PURCHASE_USD } from './client.js';
+import { publicClient, TREASURY, STABLECOINS, MIN_PURCHASE_USD, POWERUP_PACKAGES } from './client.js';
 
 const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
 
@@ -101,5 +101,53 @@ export async function verifyPendingPurchases(supabase, { wallet, limit = 50 } = 
     }
   }
 
-  return { checked: rows?.length ?? 0, verified, rejected, pending };
+  const credit = await creditVerifiedPurchases(supabase, { wallet });
+
+  return { checked: rows?.length ?? 0, verified, rejected, pending, credited: credit.credited };
+}
+
+/**
+ * Grant the items of verified power-up purchases that have not been granted
+ * yet. This is the only way a purchase reaches player_inventory: the client
+ * can only ever lower its counts (see consume_inventory).
+ *
+ * The package is looked up on the server and the verified on-chain amount must
+ * cover its price, so a client claiming the 10-pack for a $0.10 transfer gets
+ * nothing. credit_purchase() claims and grants in one transaction, so running
+ * this twice, or concurrently, grants each purchase once.
+ */
+export async function creditVerifiedPurchases(supabase, { wallet, limit = 200 } = {}) {
+  let q = supabase
+    .from('purchases')
+    .select('id, item_type, package_index, verified_amount')
+    .not('verified_at', 'is', null)
+    .is('credited_at', null)
+    .in('item_type', ['bomb', 'expand'])
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  if (wallet) q = q.eq('wallet_address', wallet.toLowerCase());
+
+  const { data: rows, error } = await q;
+  if (error) throw new Error(`purchase credit query failed: ${error.message}`);
+
+  let credited = 0, skipped = 0;
+  for (const row of rows ?? []) {
+    const pkg = POWERUP_PACKAGES[row.package_index];
+    if (!pkg || Number(row.verified_amount) + 1e-9 < pkg.priceUSD) {
+      console.warn(`[purchases] not crediting ${row.id}: package ${row.package_index} not covered by ${row.verified_amount}`);
+      skipped++;
+      continue;
+    }
+
+    const { data: granted, error: rpcError } = await supabase.rpc('credit_purchase', {
+      p_id:      row.id,
+      p_bombs:   row.item_type === 'bomb'   ? pkg.qty : 0,
+      p_expands: row.item_type === 'expand' ? pkg.qty : 0,
+    });
+    if (rpcError) throw new Error(`credit_purchase failed for ${row.id}: ${rpcError.message}`);
+    if (granted) credited++;
+  }
+
+  return { credited, skipped };
 }
