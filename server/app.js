@@ -220,6 +220,15 @@ export function createApp() {
 
     if (error) return res.status(500).json({ error: error.message });
 
+    // Verify and grant now rather than at the next ladder sync, so the items
+    // are on the server before the player's next reload. The client has
+    // already waited for the receipt, so it is normally found first time; if
+    // not, the next ladder sync picks the purchase up.
+    const { verifyPendingPurchases } = await import('./chain/purchases.js');
+    const result = await verifyPendingPurchases(supabase, { wallet: addr })
+      .catch(err => ({ error: err.message }));
+    if (result.error) console.error('[purchases]', result.error);
+
     res.json({ ok: true });
   });
 
