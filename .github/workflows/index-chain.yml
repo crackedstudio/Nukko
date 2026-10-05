@@ -1,0 +1,22 @@
+name: Index chain events
+
+# The API runs on Supabase Edge Functions, where no process lives long enough
+# to hold the indexer's timer. Ladder syncs still index on demand; this keeps
+# chain_events (and so the public standings) current between them.
+#
+# Needs the repository secret CRON_SECRET, matching the function's secret.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sweep new GameStarted / ScoreSubmitted events
+        run: |
+          curl -sf --max-time 140 -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            https://kvgcsucroxqsszkadpjl.supabase.co/functions/v1/api/indexer/sync \
+            || echo "::warning::indexer sync failed"
