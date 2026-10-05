@@ -41,7 +41,7 @@ export default defineConfig({
     // runs on a phone), and on that phone "localhost" is the phone itself. So
     // dev builds call /api on their own origin and Vite forwards it to the API
     // server here. Override the target to test against the deployed backend:
-    //   API_PROXY_TARGET=https://nukko.onrender.com npm run dev
+    //   API_PROXY_TARGET=https://kvgcsucroxqsszkadpjl.supabase.co/functions/v1 npm run dev
     proxy: {
       '/api': {
         target: process.env.API_PROXY_TARGET || 'http://localhost:3001',
